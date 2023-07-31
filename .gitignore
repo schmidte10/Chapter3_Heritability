@@ -46,4 +46,8 @@ docs/
 po/*~
 
 # RStudio Connect folder
-rsconnect/
+rsconnect/ 
+
+# ignore data files 
+*.txt 
+*.xlsx
