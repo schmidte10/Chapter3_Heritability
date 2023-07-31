@@ -88,26 +88,6 @@ mmr <- list()
 mmr <- subset_data(cycle1_data, from = starts, to = ends, by = "TIME") %>% 
   auto_rate(method = "rolling", plot = T, width = 30, by = "time")  
 
-mmr2 <- mmr %>% 
-  convert_rate(oxy.unit = "%Air", 
-               time.unit = "secs", 
-               output.unit = "mg/h/kg", 
-               volume = chamber_vol,
-               mass = mass,
-               S = salinity, 
-               t = temperature, 
-               P = 1.013253)
-  
-summary(mmr2)
-
-mmr_final <- mmr2 %>% 
-  select_rate(method = "rsq", n = c(0.95,1)) %>%
-  select_rate(method = "highest", n = 1) %>% 
-  plot(type = "full") %>%
-  summary(export = TRUE)
-
-FISH_ID;mmr_final[1,29];mmr_final[1,29]*mass
-
 #--- background rates ---# 
 pre1 <- read.csv("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_ 01 July 2023 11 15AM/All slopes/Cycle_2.txt", 
                    sep = ";")
