@@ -85,9 +85,9 @@ ends = reps + buffer + measure
 
 mmr <- list()
 
-mmr <- subset_data(cycle1_data, from = starts, to = ends, by = "TIME") %>% 
-  auto_rate(method = "rolling", plot = T, width = 30, by = "time")  
-
+mmr <- subset_data(cycle1_data, from = starts, to = ends, by = "time") %>% 
+  auto_rate(method = "highest", plot = T, width = 30, by = "time") %>% 
+ summary()
 #--- background rates ---# 
 pre1 <- read.csv("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_ 01 July 2023 11 15AM/All slopes/Cycle_2.txt", 
                    sep = ";")
@@ -100,7 +100,7 @@ firesting_pre <- read_delim("C:/Users/jc527762/OneDrive - James Cook University/
                            delim = "\t", escape_double = FALSE, 
                            trim_ws = TRUE, skip = 19) 
 
-firesting_pre2 <-  firesting %>% 
+firesting_pre2 <-  firesting_pre %>% 
   select(c(1:3,5:8)) %>% 
   rename(TIME = `Time (HH:MM:SS)`, 
          dTIME = `Time (s)`, 
@@ -138,28 +138,7 @@ for (i in 1:3) {
 }
 
 
-pre_final[[1]]$rate.bg;pre_final[[2]]$rate.bg;pre_final[[3]]$rate.bg
-
-pre1_final <- pre1 %>% 
-  select(c(1:2,4:7)) %>% 
-  rename(TIME = Time, 
-         dTIME = Seconds.from.start.for.linreg,  
-         ch1 = ch1.po2, 
-         ch2 = ch2.po2,
-         ch3 = ch3.po2, 
-         ch4 = ch4.po2) %>% 
-  select(c("dTIME", all_of(chamber),"TIME")) %>% 
-  rename(Oxygen = chamber) %>% 
-  mutate(dTIME = as.numeric(dTIME), 
-         Oxygen = as.numeric(Oxygen), 
-         TIME = as.character(TIME)) %>% 
-  inspect() %>% 
-  calc_rate.bg()
-
-
-bg_pre <- inspect(pre1, dtime = 1, oxygen=2) |> 
-  calc_rate.bg() %>% 
-  summary()
+bg[[1]]$rate.bg;bg[[2]]$rate.bg;bg[[3]]$rate.bg
 
 
 mmr_adj <- adjust_rate(mmr, by=c(bg[[1]]$rate.bg,bg[[2]]$rate.bg,bg[[3]]$rate.bg), method = "mean")
@@ -183,11 +162,10 @@ mmr_final <- mmr_adj2 %>%
   plot(type = "full") %>%
   summary(export = TRUE)
 
-FISH_ID;mmr_final$rate.output;mmr_final$rate.output*mass
+
 
 `mmr(mg/h/kg)` <- mmr_final$rate.output *-1
 mmr <- mmr_final$rate.output*mass * -1
-
 results <- data.frame(FISH_ID = FISH_ID, 
                       Mass = mass, 
                       Chamber = chamber, 
@@ -199,3 +177,5 @@ results <- data.frame(FISH_ID = FISH_ID,
                       `mmr(mg/h/kg)` = `mmr(mg/h/kg)`, 
                       mmr = mmr) %>% 
   view()
+
+

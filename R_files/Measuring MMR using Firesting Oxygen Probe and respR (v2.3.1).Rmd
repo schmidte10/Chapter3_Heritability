@@ -1,0 +1,172 @@
+---
+title: "Measuring MMR using Firesting Oxygen Probe and respR (v2.3.1)"
+author: "Elliott Schmidt"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true  
+    toc_depth: 6 
+    toc_float: true
+---
+
+```{r setup, include=FALSE, hide=TRUE}
+knitr::opts_knit$set(root.dir = "C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/Chapter3_Heritability/R_files/")
+```
+
+Hello! It looks like you have decided on analyzing your respirometry data using the R package respR. Below are some steps that outline how to do so. This specific tutorial is on calculating **maximum metabolic rate**.  
+
+Through this tutorial we will be [pipeing](https://r4ds.had.co.nz/pipes.html). The symbol **%>%** and **|>** may be used interchangably. 
+
+### Library (packages)
+
+The first step is to **load** all the packages that are needed. Also, before running the code below, make sure that you have **installed** all the packages that are listed. Some packages like _tidyverse_ will have a number of dependencies. So while you only have to load one package in reality you are loading several behind the scenes - how exciting!
+
+```{r libraries, message=FALSE, warning=FALSE}
+library("respR")
+library("tidyverse") 
+library("data.table") 
+library("hms")
+```
+
+### Set working directory 
+
+Next we will set the working directory. This should always be done in your Rscripts to make sure your files are being saved to the correct location. It can also make it easier to import files. Not sure what directory you're in. Try using the **getwd()** function. 
+
+```{r setwd, message=FALSE, warnings=FALSE, eval=FALSE}
+setwd("[ENTER YOUR WORKING DIRECTORY HERE]")
+```
+
+### Enter specimen data 
+
+Only some of this data is needed in the analysis, but others are good to include to make sure that you are working with the correct data file. The necessary variables include **mass**, **chamber**, **temperature**, **salinity**, and **chamber_vol**.
+
+```{r speciment data, cache=TRUE}
+FISH_ID = "133.1"
+mass = 0.0007676 #in kilograms 
+chamber = "ch4" 
+temperature = 28.5 
+salinity = 35 
+chamber_vol = 0.04860
+system1 = "DELL" 
+Date1 = "01/07/2023"
+```
+
+### Importing data from Firesting 
+
+Now we will import our firesting file. There are a couple special notes to make about code that was run above. The code above was imported via the package _readr_ which gets loaded when load the _tidyverse_ package. This has the benefit of letting you see what the dataframe will look like before importing it and I highly suggest you do this the first time that you import your data. Secondly, you will have to **skip** the first 19 rows from the firesting file as these rows contain metadata, and not the actually oxygen data that you will be using. 
+
+```{r importing data, cache=TRUE, warning=FALSE, echo=TRUE, results="hide"}
+firesting <- read_delim("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_ 01 July 2023 11 56AM/Oxygen data raw/firesting.txt", 
+                             delim = "\t", escape_double = FALSE, 
+                             col_types = cols(`Time (HH:MM:SS)` = col_time(format = "%H:%M:%S")), 
+                             trim_ws = TRUE, skip = 19)
+
+``` 
+The code has renamed some of our columns and has told us which columns have recieved new names 
+
+### Data manipulation 
+
+Now that we have the firesting file in R we must manipulate it so that we have only the data that we need. 
+
+The first step will be so select only the columns we want. The first three columns that we select and rename as **TIME**, **dTIME**, and **DATE**. The next set of columns that we need are the columns that contain the oxygen data from our chambers which we will rename **ch1**, **ch2**, **ch3**, and **ch4**. 
+
+Once we have only the data that we are interested in we will select and reorder the following variables **dTIME**, **chamber** - note this variable will change as we will call upon only the chamber that we have selected in the _specimen data_ section - and **TIME**. 
+
+Then rename the **chamber** column to **Oxygen**. respR will treat the first column as time data and the second column as oxygen data. 
+
+Lastly we make sure that the **dTIME** and **Oxygen** columns are **numeric**. 
+
+```{r data_manipulation, warning=FALSE}
+firesting2 <- firesting %>% 
+  select(c(1:3,5:8)) %>% 
+  rename(TIME = `Time (HH:MM:SS)`, 
+         dTIME = `Time (s)`, 
+         DATE = Date, 
+         ch1 = Ch1...5, 
+         ch2 = Ch2...6,
+         ch3 = Ch3...7, 
+         ch4 = Ch4...8) %>% 
+  select(c("dTIME", all_of(chamber),"TIME")) %>% 
+  rename(Oxygen = chamber) %>% 
+  mutate(dTIME = as.numeric(dTIME), 
+         Oxygen = as.numeric(Oxygen), 
+         TIME = as.character(TIME))
+```
+
+### Inspect file  
+
+The function _inspect()_ is a data exploration and preparation function that visualizes respirometry data and inspects it for common issues that may affect the use of further functions in **respR**. More information about the _inspect()_ function can be found [here](https://januarharianto.github.io/respR/articles/inspecting.html) 
+
+```{r inspect, warning=FALSE}
+inspect(firesting2)
+```
+
+From the output we can see that both our **dTIME** and **Oxygen** columns are numeric, don't have NA's or Inf/-inf, values are sequential, and there are no duplicated times, however, it does warn us that are **dTIME** values are not evenly spaced. Firesting recorded value at ~1/sec however sometime is would go slightly slower or faster making the spacing of our values uneven. This is fine, respR will account for this, but it is letting us know. 
+
+### Cycle data 
+
+**Preamble**: 
+Previously, we imported our firesting file to see what the data looks like. This can be useful if you were unsure which slow was the steepest. However, when calculating **MMR** because we are only concerned with one of the slopes (i.e., the steepest one), we will use the data from our **cycle** data (located in the **All slopes** folder if using AquaResp) to find out when our first cycle started and ended.
+
+When looking at **MMR** we only need to look at the steepest slow which is usually the first, second, or sometimes the third slope. For the example below we will be acting like the first slope was the steepest, which is why we will be importing **cycle1** from our data folder. However, if cycle2 or cycle3 is steepest for your data simply change cycle1 in the code below to cycle2 when importing your data. 
+
+In the example below it works best if you use the function **read.csv** to import that data.
+
+#### Importing data 
+```{r importing cycle data, cache=TRUE, warning=FALSE, echo=TRUE, results="hide"}
+cycle1 <- read.csv("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_ 01 July 2023 11 56AM/All slopes/Cycle_1.txt", 
+                          sep = ";")
+
+```  
+
+Lets find out what time our cycle started and ended (time)
+
+```{r cycle data 1}
+cycle1.start = cycle1[1,1] 
+cycle1.end = tail(cycle1, n=1)[1,1]
+``` 
+
+Lets find out what row correlates to our starting time 
+
+```{r cycle data 2}
+cycle1.start.row <- which(firesting2$TIME == cycle1.start); cycle1.start.row
+cycle1.end.row <- which(firesting2$TIME == cycle1.end); cycle1.end.row
+```  
+
+Subset the cycle that we are interested in from our firesting file 
+```{r cycle data 3}
+cycle1_data <- firesting2 %>% 
+  subset_data(from = cycle1.start.row, 
+              to = cycle1.end.row, 
+              by = "row")
+``` 
+
+Lets inspect the data we have 
+```{r cycle data 4, warning=FALSE}
+inspect(cycle1_data)
+```
+
+### Calculating MMR 
+
+Now we are ready to calculate **MMR**. We need tell respR when all out cycles start and how long they go until. This will be more important when we calculate **RMR**, however, it will be good to practive here. 
+
+We will ned to imput our measure, flush, and wait times. I also include a fourth variable called _buffer_, use this variable if you want to add more wait time. This should be used if you think that your wait time during your experiment was not long enough, however the value (time) used for _buffer_ should then be extracted from your measure time, so that your overall cycle time does not change. 
+
+```{r mmr} 
+buffer = 0 
+measure = 300
+flush = 195 
+wait = 45 
+
+cycle.length = measure + flush + wait
+reps <- seq(cycle1.start.row, cycle1.end.row, cycle.length) 
+
+starts = reps + buffer 
+ends = reps + buffer + measure 
+
+
+mmr <- list()
+mmr <- subset_data(cycle1_data, from = starts, to = ends, by = "time") %>% 
+  auto_rate(method = "highest", plot = T, width = 30, by = "time") %>% 
+  summary()
+```
