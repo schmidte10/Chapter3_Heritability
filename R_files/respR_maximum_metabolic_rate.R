@@ -141,8 +141,7 @@ for (i in 1:3) {
 bg[[1]]$rate.bg;bg[[2]]$rate.bg;bg[[3]]$rate.bg
 
 
-mmr_adj <- adjust_rate(mmr, by=c(bg[[1]]$rate.bg,bg[[2]]$rate.bg,bg[[3]]$rate.bg), method = "mean")
-mmr_adj
+mmr_adj <- adjust_rate(mmr, by=c(bg[[1]]$rate.bg,bg[[2]]$rate.bg,bg[[3]]$rate.bg), method = "mean"); mmr_adj
 
 mmr_adj2 <- mmr_adj %>% 
   convert_rate(oxy.unit = "%Air", 
@@ -152,7 +151,7 @@ mmr_adj2 <- mmr_adj %>%
                mass = mass,
                S = salinity, 
                t = temperature, 
-               P = 1.013253)
+               P = 1.013253) 
 
 summary(mmr_adj2)
 
@@ -175,7 +174,7 @@ results <- data.frame(FISH_ID = FISH_ID,
                       Salinity = salinity, 
                       Temperature = temperature, 
                       `mmr(mg/h/kg)` = `mmr(mg/h/kg)`, 
-                      mmr = mmr) %>% 
-  view()
+                      mmr = mmr) %>% kable()
+  
 
 
