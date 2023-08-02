@@ -26,6 +26,7 @@ library("respR")
 library("tidyverse") 
 library("data.table") 
 library("hms")
+library("kableExtra")
 ```
 
 ### Set working directory 
@@ -150,7 +151,13 @@ inspect(cycle1_data)
 
 Now we are ready to calculate **MMR**. We need tell respR when all out cycles start and how long they go until. This will be more important when we calculate **RMR**, however, it will be good to practive here. 
 
-We will ned to imput our measure, flush, and wait times. I also include a fourth variable called _buffer_, use this variable if you want to add more wait time. This should be used if you think that your wait time during your experiment was not long enough, however the value (time) used for _buffer_ should then be extracted from your measure time, so that your overall cycle time does not change. 
+We will ned to imput our measure, flush, and wait times. I also include a fourth variable called _buffer_, use this variable if you want to add more wait time. This should be used if you think that your wait time during your experiment was not long enough, however the value (time) used for _buffer_ should then be extracted from your measure time, so that your overall cycle time does not change.  
+
+In the auto rate function the **method** argument can be a number of options. I would look [here](https://januarharianto.github.io/respR/articles/auto_rate) to determine which one best suits your needs. The method that we have chosen in this example _highest_ is defined below by the creators of the package: 
+
+_Every regression of the specified width across the timeseries is calculated, then ordered using absolute rate values from highest to lowest. This option can only be used when rates all have the same sign, and it essentially ignores the sign. Rates will be ordered from highest to lowest in the $summary table by absolute value regardless of if they are positive or negative.Method is most suitable for when you are looking for the highest rates across a specific time or row window, representative of maximum or active metabolic rates._ 
+
+The **width** argument in the _auto_rate()_ function refers to the amount of time you want slopes calculated over. Before starting I would run the same piece of data through the auto rate function but with varying widths (e.g., 5, 10, 20, 30, 60, 90, 120) depending on the length of your measure time. Plot these values on a graph and look at the shape of the plot. It will likely by sigmoidal - in this case use the width time that is at the steep section of the sigmoidal curve, this is where variation is most likely to occur. 
 
 ```{r mmr} 
 buffer = 0 
@@ -169,4 +176,149 @@ mmr <- list()
 mmr <- subset_data(cycle1_data, from = starts, to = ends, by = "time") %>% 
   auto_rate(method = "highest", plot = T, width = 30, by = "time") %>% 
   summary()
+``` 
+
+### Calculating background rates
+
+It may be important for your data to determine what the background rate of oxygen use was during your trials. Background oxygen use rates can be calculated via a number of different methods. Because we are measuring MMR we will simply calculate background oxygen use via the background control runs that ran just prior to starting our experiment. However, we will be taking the mean of three background runs, instead of just using one.  
+
+There are a number of ways to calculate background rates depending on how background oxygen use was calculated in your experiment. For more information on measuring background oxygen use go [here](https://januarharianto.github.io/respR/articles/adjust_rate.html) 
+
+#### Importing background data 
+
+Importing background data from cycle files is best down using the _read.csv_ option. 
+
+```{r importing bg}
+pre1 <- read.csv("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_ 01 July 2023 11 15AM/All slopes/Cycle_2.txt", 
+                   sep = ";")
+pre2 <- read.csv("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_ 01 July 2023 11 15AM/All slopes/Cycle_3.txt", 
+                 sep = ";")
+pre3 <- read.csv("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_ 01 July 2023 11 15AM/All slopes/Cycle_4.txt", 
+                 sep = ";")
+
 ```
+
+Optionally you can also import the firesting file associated with your background runs to see if any runs are abnormal. This is often a good idea, so that you can visually inspect your background runs.  
+
+```{r importing bg firesting, warning=FALSE, eval=FALSE}
+firesting_pre <- read_delim("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_ 01 July 2023 11 15AM/Oxygen data raw/firesting.txt", 
+                           delim = "\t", escape_double = FALSE, 
+                           trim_ws = TRUE, skip = 19) 
+``` 
+
+Once we have imported out background data from three different cycles, we will run the data through a similar data manipulation process that we did before. However we will be running the data through a loop, to condense our code. The data will end up being saved in a list format - in this example the list is called **bg** and we can access the different datasets via indexing. 
+
+#### calculating background rates
+
+```{r background data manipulation, results="hide", message=FALSE, warning=FALSE}
+cycle_list <- list(pre1,pre2,pre3)
+bg <- list()
+
+for (i in 1:3) {
+  bg[[i]] <- cycle_list[[i]] %>% 
+    select(c(1:2,4:7))  %>% 
+    rename(TIME = Time, 
+           dTIME = Seconds.from.start.for.linreg,  
+           ch1 = ch1.po2, 
+           ch2 = ch2.po2,
+           ch3 = ch3.po2, 
+           ch4 = ch4.po2) %>% 
+    select(c("dTIME", all_of(chamber),"TIME")) %>% 
+    rename(Oxygen = chamber) %>% 
+    mutate(dTIME = as.numeric(dTIME), 
+           Oxygen = as.numeric(Oxygen), 
+           TIME = as.character(TIME)) %>% 
+    inspect() %>% 
+    calc_rate.bg()
+}
+``` 
+
+Lets look at the results. We will want to check for any run that looks like an outlier, all three backgournd cycles should have similar values.  
+
+```{r background results}
+bg[[1]]$rate.bg;bg[[2]]$rate.bg;bg[[3]]$rate.bg
+```
+
+If you are happy with your background rates then we will can move on to adjusting our previously calculated MMR 
+
+### Adjusting MMR  
+
+Now that we have our background rates we can use them to adjust our previously calculated **MMR** values. 
+
+```{r adjust}
+mmr_adj <- adjust_rate(mmr, by=c(bg[[1]]$rate.bg,bg[[2]]$rate.bg,bg[[3]]$rate.bg), method = "mean"); mmr_adj
+```
+
+All our calculated **MMR** rates have now been adjusted for background oxygen use 
+
+### Converting units
+
+Finally we will want to convert our **MMR** rate data into units that we chose. More information about unit conversion can be found [here](https://januarharianto.github.io/respR/articles/convert_DO.html) 
+
+```{r converting units}
+
+mmr_adj2 <- mmr_adj %>% 
+  convert_rate(oxy.unit = "%Air", 
+               time.unit = "secs", 
+               output.unit = "mg/h/kg", 
+               volume = chamber_vol,
+               mass = mass,
+               S = salinity, 
+               t = temperature, 
+               P = 1.013253)
+```
+
+To see a detailed summary of the converted units use the following code below 
+
+```{r converting units summary, eval=FALSE}
+summary(mmr_adj2)
+```
+
+### Selecting rates
+
+Always finished! The last step will be to select which rate you wish to use for your **MMR**. By selecting the method _highest_ in our **MMR** calculations, all our rates have been placed in order of highest to lowest - note that by highest rate we mean the lowest number because the rates are negative (-), respR takes this into account (i.e., we are looking for the most negative rate). 
+
+Although, we may certain additional requirements, such as our slope needing an **rsq** value greater than 0.95. This can be done by using the _select_rate_ function. However, it is important to note that **the order you put the _select_rate_ arguments in matters**. In the example below the rates are already ordered highest to lowest. We will then use the _select_rate_ function to remove rates that have an **rsq** below **0.95**, then we will select the highest rate. 
+
+```{r select rate}
+mmr_final <- mmr_adj2 %>% 
+  select_rate(method = "rsq", n = c(0.95,1)) %>%
+  select_rate(method = "highest", n = 1) %>% 
+  plot(type = "full") %>%
+  summary(export = TRUE) 
+
+```
+
+### Results
+
+Lastly, we use all the variables we included at the start as well as out calculated rates to make a nice table that displays our relevant data. 
+
+```{r final table}
+`mmr(mg/h/kg)` <- mmr_final$rate.output *-1
+mmr <- mmr_final$rate.output*mass * -1
+results <- data.frame(FISH_ID = FISH_ID, 
+                      Mass = mass, 
+                      Chamber = chamber, 
+                      System = system1,
+                      Volume = chamber_vol, 
+                      Date = Date1,
+                      Salinity = salinity, 
+                      Temperature = temperature, 
+                      `mmr(mg/h/kg)` = `mmr(mg/h/kg)`, 
+                      mmr = mmr) 
+knitr::kable(results, "simple")
+  
+```
+
+**FINISHED!** 
+
+Note more infromation can always be found in the outline [respR manual](https://januarharianto.github.io/respR/). Also, don't forget to cite the package **respR** in your research article (see below): 
+
+Harianto J, Carey N, Byrne M (2019). “respR — An R package for the manipulation and analysis of respirometry data." _Methods in Ecology and Evolution_, 10(6), 912-920. [doi:10.1111/2041-210X.13162](https://doi.org/10.1111/2041-210X.13162.)
+
+
+
+
+
+
+
