@@ -1,5 +1,5 @@
 ---
-title: "MMR-and-RMR-workflow-CARL239"
+title: "MMR-and-RMR-workflow-CARL249"
 author: "Elliott Schmidt"
 date: "`r Sys.Date()`"
 output: 
@@ -35,27 +35,27 @@ setwd("[PATH TO DIRECTORY]")
 
 # Enter specimen data 
 ```{r}
-Date_tested="2023-06-14"
+Date_tested="2023-06-06"
 Sex = "F"
-FISH_ID = "CARL239" 
-Population = "Arlington reef"
-Tank =369 
-mass = 0.02697 
-chamber = "ch2" 
+FISH_ID = "CPRE390" 
+Population = "Pretty patches"
+Tank =204 
+mass = 0.03615 
+chamber = "ch3" 
 Swim = "excellent/perfect"
 salinity = 36 
 chamber_vol = 1.5
-system1 = "Dell"
-Date_analysed = Sys.Date() 
+system1 = "Dell_7440"
+Date_analysed = Sys.Date()
 ```
 
 # Importing data from firesting for resting
 ```{r}
 #--- time of trail ---# 
-experiment_mmr_date <- "14 June 2023 01 28PM/Oxygen"
-experiment_mmr_date2 <- "14 June 2023 01 28PM/All"
+experiment_mmr_date <- "06 June 2023 12 13PM/Oxygen"
+experiment_mmr_date2 <- "06 June 2023 12 13PM/All"
 
-firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell/Experiment_",experiment_mmr_date,"data raw/Firesting.txt"), 
+firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_mmr_date,"data raw/Firesting.txt"), 
     delim = "\t", escape_double = FALSE, 
     col_types = cols(`Time (HH:MM:SS)` = col_time(format = "%H:%M:%S"), 
         `Time (s)` = col_number(), Ch1...5 = col_number(), 
@@ -63,7 +63,7 @@ firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook Unive
         Ch4...8 = col_number()), trim_ws = TRUE, 
     skip = 19) 
 
-Cycle_1.mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell/Experiment_",experiment_mmr_date2,"slopes/Cycle_1.txt"), 
+Cycle_1.mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_mmr_date2,"slopes/Cycle_2.txt"), 
     delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
         `Seconds from start for linreg` = col_number(), 
         `ch1 po2` = col_number(), `ch2 po2` = col_number(), 
@@ -74,14 +74,14 @@ Cycle_1.mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook Univers
 
 # Importing data from firesting for resting
 ```{r warning=FALSE, message=FALSE}
-preexperiment_date <- "14 June 2023 10 21AM/All"
-postexperiment_date <- "14 June 2023 07 21PM/All"
+preexperiment_date <- "06 June 2023 10 23AM/All"
+postexperiment_date <- "06 June 2023 06 29PM/All"
 
 #--- last fish run in trial ---#
-experiment_date <- "14 June 2023 01 28PM/Oxygen"
-experiment_date2 <- "14 June 2023 01 28PM/All"
+experiment_date <- "06 June 2023 12 39PM/Oxygen"
+experiment_date2 <- "06 June 2023 12 39PM/All"
 
-firesting <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell/Experiment_",experiment_date,"data raw/Firesting.txt"), 
+firesting <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_date,"data raw/Firesting.txt"), 
     delim = "\t", escape_double = FALSE, 
     col_types = cols(`Time (HH:MM:SS)` = col_time(format = "%H:%M:%S"), 
         `Time (s)` = col_number(), Ch1...5 = col_number(), 
@@ -89,14 +89,14 @@ firesting <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook Universit
         Ch4...8 = col_number()), trim_ws = TRUE, 
     skip = 19)
 
-Cycle_1 <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell/Experiment_",experiment_date2,"slopes/Cycle_1.txt"), 
+Cycle_1 <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_date2,"slopes/Cycle_1.txt"), 
     delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
         `Seconds from start for linreg` = col_number(), 
         `ch1 po2` = col_number(), `ch2 po2` = col_number(), 
         `ch3 po2` = col_number(), `ch4 po2` = col_number(), 
         ...8 = col_skip()), trim_ws = TRUE) 
 
-Cycle_34 <-read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell/Experiment_",experiment_date2,"slopes/Cycle_34.txt"), 
+Cycle_34 <-read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_date2,"slopes/Cycle_34.txt"), 
     delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
         `Seconds from start for linreg` = col_number(), 
         `ch1 po2` = col_number(), `ch2 po2` = col_number(), 
@@ -108,7 +108,7 @@ Cycle_34 <-read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/
 # Background rates 
 ## Pre-experiment
 ```{r warning=FALSE, message=FALSE}
-setwd(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell/Experiment_",preexperiment_date,"slopes")) 
+setwd(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",preexperiment_date,"slopes")) 
 
 pre_cycle1 <- read_delim("./Cycle_1.txt", 
     delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
@@ -151,7 +151,7 @@ bg_pre
 
 ## post-experiment 
 ```{r warning=FALSE, message=FALSE}
-setwd(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell/Experiment_",postexperiment_date,"slopes")) 
+setwd(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",postexperiment_date,"slopes")) 
  
 
 post_cycle1 <- read_delim("./Cycle_1.txt", 
@@ -391,9 +391,7 @@ knitr::kable(results, "simple")
 # Exporting data 
 ```{r}
 resp_results_adults <- read_csv("resp_results_adults.csv") 
-resp_results_adults <- rbind(resp_results_adults, results) |> 
-  arrange(Date_analysed) |>
-  distinct(FISH_ID, .keep_all = TRUE)
+resp_results_adults <- rbind(resp_results_adults, results) 
 resp_results_adults 
 write.csv(resp_results_adults, file="./resp_results_adults.csv", row.names = FALSE)
 ```
