@@ -1,0 +1,1442 @@
+---
+title: "MMR-and-RMR-workflow-Clutch133"
+author: "Elliott Schmidt"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true  
+    toc_depth: 2
+    toc_float: true
+    code_folding: show
+    collapse: no
+    df_print: paged
+    fig_caption: yes
+    fig_height: 4
+    fig_width: 6
+    highlight: monochrome
+    theme: cerulean
+    latex_engine: xelatex
+---
+
+# Load libraries (packages)
+```{r warning=FALSE, message=FALSE}
+library("respR") ## respirometry/slope analysis
+library("tidyverse") ## data manipulation
+```
+
+# Set working directory 
+```{r echo=FALSE}
+knitr::opts_knit$set(root.dir="C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/Chapter3_Heritability")
+```
+
+```{r echo=TRUE, eval=FALSE}
+setwd("[PATH TO DIRECTORY]")
+```
+
+# System1 
+### Importing data from firesting for resting
+```{r warning=FALSE, message=FALSE}
+preexperiment_date <- "01 July 2023 11 15AM/All"
+postexperiment_date <- "01 July 2023 03 42PM/All"
+
+##--- last fish run in trial ---##
+experiment_date <- "01 July 2023 12 24PM/Oxygen"
+experiment_date2 <- "01 July 2023 12 24PM/All"
+
+firesting <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_date,"data raw/Firesting.txt"), 
+    delim = "\t", escape_double = FALSE, 
+    col_types = cols(`Time (HH:MM:SS)` = col_time(format = "%H:%M:%S"), 
+        `Time (s)` = col_number(), Ch1...5 = col_number(), 
+        Ch2...6 = col_number(), Ch3...7 = col_number(), 
+        Ch4...8 = col_number()), trim_ws = TRUE, 
+    skip = 19)
+
+Cycle_1 <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_date2,"slopes/Cycle_1.txt"), 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        `Seconds from start for linreg` = col_number(), 
+        `ch1 po2` = col_number(), `ch2 po2` = col_number(), 
+        `ch3 po2` = col_number(), `ch4 po2` = col_number(), 
+        ...8 = col_skip()), trim_ws = TRUE) 
+
+Cycle_last <-read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_date2,"slopes/Cycle_21.txt"), 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        `Seconds from start for linreg` = col_number(), 
+        `ch1 po2` = col_number(), `ch2 po2` = col_number(), 
+        `ch3 po2` = col_number(), `ch4 po2` = col_number(), 
+        ...8 = col_skip()), trim_ws = TRUE) 
+```
+
+# Chamber volumes 
+```{r}
+chamber1_dell = 0.04650
+chamber2_dell = 0.04593
+chamber3_dell = 0.04977
+chamber4_dell = 0.04860 
+
+chamber1_asus = 0.04565
+chamber2_asus = 0.04573
+chamber3_asus = 0.04551
+chamber4_asus = 0.04791
+```
+
+# Replicates {.tabset}
+## 1
+### Enter specimen data 
+```{r}
+Date_tested="2023-07-01"
+Clutch = "133" 
+Replicate = 1 
+Male = "CARL335" 
+Female = "CARL59"
+Population = "Arlington reef"
+Tank =139 
+mass = 0.0007814 
+chamber = "ch4" 
+Swim = "good/good"
+salinity = 35 
+chamber_vol = chamber4_dell
+system1 = "Dell_7440"
+Date_analysed = Sys.Date() 
+Notes=""
+```
+
+### Importing data from firesting for resting
+```{r}
+##--- time of trail ---## 
+experiment_mmr_date <- "01 July 2023 11 56AM/Oxygen"
+experiment_mmr_date2 <- "01 July 2023 11 56AM/All"
+
+firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_mmr_date,"data raw/Firesting.txt"), 
+    delim = "\t", escape_double = FALSE, 
+    col_types = cols(`Time (HH:MM:SS)` = col_time(format = "%H:%M:%S"), 
+        `Time (s)` = col_number(), Ch1...5 = col_number(), 
+        Ch2...6 = col_number(), Ch3...7 = col_number(), 
+        Ch4...8 = col_number()), trim_ws = TRUE, 
+    skip = 19) 
+
+Cycle_1.mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_mmr_date2,"slopes/Cycle_1.txt"), 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        `Seconds from start for linreg` = col_number(), 
+        `ch1 po2` = col_number(), `ch2 po2` = col_number(), 
+        `ch3 po2` = col_number(), `ch4 po2` = col_number(), 
+        ...8 = col_skip()), trim_ws = TRUE) 
+
+```
+
+### Background rates 
+#### Pre-experiment
+```{r warning=FALSE, message=FALSE}
+setwd(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",preexperiment_date,"slopes")) 
+
+pre_cycle1 <- read_delim("./Cycle_1.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+pre_cycle2 <- read_delim("./Cycle_2.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber)) 
+
+pre_cycle3 <- read_delim("./Cycle_3.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+
+bg_pre1 <- pre_cycle1 %>% calc_rate.bg()
+bg_pre2 <- pre_cycle2 %>% calc_rate.bg() 
+bg_pre3 <- pre_cycle3 %>% calc_rate.bg() 
+
+bg_pre <- mean(bg_pre1$rate.bg.mean,bg_pre2$rate.bg.mean,bg_pre3$rate.bg.mean) 
+bg_pre
+```
+
+#### post-experiment 
+```{r warning=FALSE, message=FALSE}
+setwd(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",postexperiment_date,"slopes")) 
+ 
+
+post_cycle1 <- read_delim("./Cycle_1.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+post_cycle2 <- read_delim("./Cycle_2.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber)) 
+
+post_cycle3 <- read_delim("./Cycle_3.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+bg_post1 <- post_cycle1 %>% calc_rate.bg() 
+bg_post2 <- post_cycle2 %>% calc_rate.bg() 
+bg_post3 <- post_cycle3 %>% calc_rate.bg() 
+
+bg_post <- mean(bg_post1$rate.bg.mean,bg_post2$rate.bg.mean,bg_post3$rate.bg.mean)
+bg_post 
+```
+
+### Resting metabolic rate
+#### Data manipulation 
+```{r}
+firesting2 <- firesting |>
+  select(c(1:3,5:9)) |> 
+  rename(TIME = `Time (HH:MM:SS)`, 
+         dTIME = `Time (s)`, 
+         ch1 = Ch1...5, 
+         ch2 = Ch2...6,
+         ch3 = Ch3...7, 
+         ch4 = Ch4...8, 
+         temperature= `Ch 1...9`) |> 
+  select(c("dTIME",all_of(chamber),"TIME","temperature"))
+```
+
+#### Inspect file 
+```{r}
+inspect(firesting2, time=1, oxygen=2)
+```
+#### subset data 
+```{r warning=FALSE, message=FALSE}
+Tstart.row=which(firesting2$TIME ==Cycle_1$Time[1], firesting$TIME) 
+Tstart.dTIME=as.numeric(firesting2[Tstart.row, "dTIME"]) 
+
+Tend.row=which(firesting2$TIME ==tail(Cycle_last$Time, n=1), firesting$TIME) 
+Tend.dTIME=as.numeric(firesting2[Tend.row, "dTIME"])  
+
+apoly_insp <- firesting2 |> 
+  subset_data(from=Tstart.dTIME, 
+              to=Tend.dTIME, 
+              by="time") 
+
+apoly_insp <- inspect(apoly_insp, time=1, oxygen=2)
+```
+
+#### Extract rates 
+```{r}
+apoly_cr.int <- calc_rate.int(apoly_insp, 
+                              starts=(195+45+300), 
+                              wait=45, 
+                              measure=255, 
+                              by="time", 
+                              plot=TRUE) 
+```
+
+```{r echo=FALSE}
+plot(apoly_cr.int, pos=20:length(apoly_cr.int$subsets)) 
+###plot(apoly_cr.int, pos=40:length(apoly_cr.int$subsets)) 
+
+apoly_cr.int$summary
+```
+
+#### adjust rates for background  
+```{r}
+apoly_cr.int_adj <- adjust_rate(apoly_cr.int, 
+                                by = bg_pre, 
+                                by2 = bg_post, 
+                                time_by = Tstart.row, 
+                                time_by2 = Tend.row,
+                                method = "linear")
+apoly_cr.int_adj$summary
+```
+
+#### Converting units
+```{r}
+apoly_cr.int_adj2 <- apoly_cr.int_adj |> 
+  convert_rate(oxy.unit = "%Air", 
+               time.unit = "secs", 
+               output.unit = "mg/h/kg", 
+               volume = chamber_vol,
+               mass = mass,
+               S = salinity, 
+               t = as.numeric(unique(firesting2$temperature)), 
+               P = 1.013253) 
+apoly_cr.int_adj2$summary
+```
+
+#### Plot curve
+```{r}
+ggplot(as.data.frame(apoly_cr.int_adj2$summary), aes(x=row, y=rate.output*-1)) + 
+  geom_point() + 
+  stat_smooth(method = "lm", formula = y~poly(x, 2), color="red") +
+  theme_classic()
+```
+
+#### Rate filtering 
+```{r}
+apoly_rmr <- apoly_cr.int_adj2 |> 
+  select_rate(method ="rsq", n=c(0.95,1)) |> 
+  select_rate(method="lowest", n=6) |> 
+  plot(type="full") |> 
+  summary(export = TRUE)
+
+## remove lowest slope 
+apoly_rmr <- apoly_rmr |> 
+  filter(rate.output != max(rate.output))
+```
+
+#### Results 
+```{r} 
+results <- data.frame(Clutch = Clutch, 
+                      Replicate =Replicate, 
+                      Male=Male, 
+                      Female=Female,
+                      Population = Population, 
+                      Tank = Tank,
+                      Mass = mass, 
+                      Chamber = chamber, 
+                      System = system1,
+                      Volume = chamber_vol, 
+                      Date_tested = Date_tested, 
+                      Date_analysed =Date_analysed,
+                      Swim = Swim,
+                      Salinity = salinity, 
+                      Temperature = as.numeric(unique(firesting2$temperature)), 
+                      Resting_kg = mean(apoly_rmr$rate.output*-1), 
+                      Resting =  mean(apoly_rmr$rate.output*-1)*mass)
+knitr::kable(results, "simple") 
+```
+
+### Maximum oxygen consumption 
+#### Data manipulation 
+```{r}
+firesting2_mmr <- firesting_mmr |>
+  select(c(1:3,5:9)) |> 
+  rename(TIME = `Time (HH:MM:SS)`, 
+         dTIME = `Time (s)`, 
+         ch1 = Ch1...5, 
+         ch2 = Ch2...6,
+         ch3 = Ch3...7, 
+         ch4 = Ch4...8, 
+         temperature= `Ch 1...9`) |> 
+  select(c("dTIME",all_of(chamber),"TIME","temperature"))
+```
+
+#### Inspect file 
+```{r}
+inspect(firesting2_mmr, time=1, oxygen=2)
+```
+
+#### Subset data 
+```{r}
+cycle1.start <-  Cycle_1.mmr[1,1]
+cycle1.end <-  tail(Cycle_1.mmr, n=1)[1,1] 
+
+cycle1.start.row <- which(firesting2_mmr$TIME == cycle1.start); cycle1.start
+cycle1.end.row <- which(firesting2_mmr$TIME == cycle1.end); cycle1.end 
+
+cycle1_data <- firesting2_mmr |> 
+  subset_data(from = cycle1.start.row, 
+              to = cycle1.end.row, 
+              by = "row") 
+
+inspect(cycle1_data)
+```
+
+#### Calculating MMR 
+```{r}
+mmr <- auto_rate(cycle1_data, method = "highest", plot=TRUE, width=60, by="time") |> 
+  summary()
+```
+
+#### Adjusting 
+```{r}
+mmr_adj <- adjust_rate(mmr, by=bg_pre, method = "mean");mmr_adj
+```
+
+#### Converting units 
+```{r}
+mmr_adj2 <- mmr_adj |> 
+  convert_rate(oxy.unit = "%Air", 
+               time.unit = "secs", 
+               output.unit = "mg/h/kg", 
+               volume = chamber_vol,
+               mass = mass,
+               S = salinity, 
+               t = as.numeric(unique(firesting2$temperature)), 
+               P = 1.013253)
+```
+
+#### selecting rates 
+```{r}
+mmr_final <- mmr_adj2 |> 
+  select_rate(method = "rsq", n=c(0.89,1)) |> 
+  select_rate(method = "highest", n=1) |> 
+  plot(type="full") |> 
+  summary(export=TRUE)
+```
+
+#### Results 
+```{r}
+results <-  results |> 
+  mutate(Max_kg = mmr_final$rate.output*-1, 
+         Max = (mmr_final$rate.output*-1)*mass, 
+         AAS_kg = Max_kg - Resting_kg, 
+         AAS = Max - Resting, 
+         Notes=Notes) 
+knitr::kable(results, "simple") 
+```
+
+### Exporting data 
+```{r}
+resp_results_juveniles <- read_csv("resp_results_juveniles.csv") 
+resp_results_juveniles <- rbind(resp_results_juveniles, results) 
+resp_results_juveniles 
+write.csv(resp_results_juveniles, file="./resp_results_juveniles.csv", row.names = FALSE)
+```
+
+## {-}
+
+## 2
+### Enter specimen data 
+```{r}
+Date_tested="2023-07-01"
+Clutch = "133" 
+Replicate = 2 
+Male = "CARL335" 
+Female = "CARL59"
+Population = "Arlington reef"
+Tank =139 
+mass = 0.0006414 
+chamber = "ch3" 
+Swim = "good/good"
+salinity = 35 
+chamber_vol = chamber3_dell
+system1 = "Dell_7440"
+Date_analysed = Sys.Date() 
+Notes="max file missing!"
+```
+
+### Importing data from firesting for resting
+```{r}
+##--- time of trail ---## 
+experiment_mmr_date <- "01 July 2023 12 13PM/Oxygen"
+experiment_mmr_date2 <- "01 July 2023 12 13PM/All"
+
+firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_mmr_date,"data raw/Firesting.txt"), 
+    delim = "\t", escape_double = FALSE, 
+    col_types = cols(`Time (HH:MM:SS)` = col_time(format = "%H:%M:%S"), 
+        `Time (s)` = col_number(), Ch1...5 = col_number(), 
+        Ch2...6 = col_number(), Ch3...7 = col_number(), 
+        Ch4...8 = col_number()), trim_ws = TRUE, 
+    skip = 19) 
+
+Cycle_1.mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_mmr_date2,"slopes/Cycle_1.txt"), 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        `Seconds from start for linreg` = col_number(), 
+        `ch1 po2` = col_number(), `ch2 po2` = col_number(), 
+        `ch3 po2` = col_number(), `ch4 po2` = col_number(), 
+        ...8 = col_skip()), trim_ws = TRUE) 
+
+```
+
+### Background rates 
+#### Pre-experiment
+```{r warning=FALSE, message=FALSE}
+setwd(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",preexperiment_date,"slopes")) 
+
+pre_cycle1 <- read_delim("./Cycle_1.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+pre_cycle2 <- read_delim("./Cycle_2.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber)) 
+
+pre_cycle3 <- read_delim("./Cycle_3.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+
+bg_pre1 <- pre_cycle1 %>% calc_rate.bg()
+bg_pre2 <- pre_cycle2 %>% calc_rate.bg() 
+bg_pre3 <- pre_cycle3 %>% calc_rate.bg() 
+
+bg_pre <- mean(bg_pre1$rate.bg.mean,bg_pre2$rate.bg.mean,bg_pre3$rate.bg.mean) 
+bg_pre
+```
+
+#### post-experiment 
+```{r warning=FALSE, message=FALSE}
+setwd(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",postexperiment_date,"slopes")) 
+ 
+
+post_cycle1 <- read_delim("./Cycle_1.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+post_cycle2 <- read_delim("./Cycle_2.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber)) 
+
+post_cycle3 <- read_delim("./Cycle_3.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+bg_post1 <- post_cycle1 %>% calc_rate.bg() 
+bg_post2 <- post_cycle2 %>% calc_rate.bg() 
+bg_post3 <- post_cycle3 %>% calc_rate.bg() 
+
+bg_post <- mean(bg_post1$rate.bg.mean,bg_post2$rate.bg.mean,bg_post3$rate.bg.mean)
+bg_post 
+```
+
+### Resting metabolic rate
+#### Data manipulation 
+```{r}
+firesting2 <- firesting |>
+  select(c(1:3,5:9)) |> 
+  rename(TIME = `Time (HH:MM:SS)`, 
+         dTIME = `Time (s)`, 
+         ch1 = Ch1...5, 
+         ch2 = Ch2...6,
+         ch3 = Ch3...7, 
+         ch4 = Ch4...8, 
+         temperature= `Ch 1...9`) |> 
+  select(c("dTIME",all_of(chamber),"TIME","temperature"))
+```
+
+#### Inspect file 
+```{r}
+inspect(firesting2, time=1, oxygen=2)
+```
+#### subset data 
+```{r warning=FALSE, message=FALSE}
+Tstart.row=which(firesting2$TIME ==Cycle_1$Time[1], firesting$TIME) 
+Tstart.dTIME=as.numeric(firesting2[Tstart.row, "dTIME"]) 
+
+Tend.row=which(firesting2$TIME ==tail(Cycle_last$Time, n=1), firesting$TIME) 
+Tend.dTIME=as.numeric(firesting2[Tend.row, "dTIME"])  
+
+apoly_insp <- firesting2 |> 
+  subset_data(from=Tstart.dTIME, 
+              to=Tend.dTIME, 
+              by="time") 
+
+apoly_insp <- inspect(apoly_insp, time=1, oxygen=2)
+```
+
+#### Extract rates 
+```{r}
+apoly_cr.int <- calc_rate.int(apoly_insp, 
+                              starts=(195+45+300), 
+                              wait=45, 
+                              measure=255, 
+                              by="time", 
+                              plot=TRUE) 
+```
+
+```{r echo=FALSE}
+plot(apoly_cr.int, pos=20:length(apoly_cr.int$subsets))  
+
+apoly_cr.int$summary
+```
+
+#### adjust rates for background  
+```{r}
+apoly_cr.int_adj <- adjust_rate(apoly_cr.int, 
+                                by = bg_pre, 
+                                by2 = bg_post, 
+                                time_by = Tstart.row, 
+                                time_by2 = Tend.row,
+                                method = "linear")
+apoly_cr.int_adj$summary
+```
+
+#### Converting units
+```{r}
+apoly_cr.int_adj2 <- apoly_cr.int_adj |> 
+  convert_rate(oxy.unit = "%Air", 
+               time.unit = "secs", 
+               output.unit = "mg/h/kg", 
+               volume = chamber_vol,
+               mass = mass,
+               S = salinity, 
+               t = as.numeric(unique(firesting2$temperature)), 
+               P = 1.013253) 
+apoly_cr.int_adj2$summary
+```
+
+#### Plot curve
+```{r}
+ggplot(as.data.frame(apoly_cr.int_adj2$summary), aes(x=row, y=rate.output*-1)) + 
+  geom_point() + 
+  stat_smooth(method = "lm", formula = y~poly(x, 2), color="red") +
+  theme_classic()
+```
+
+#### Rate filtering 
+```{r}
+apoly_rmr <- apoly_cr.int_adj2 |> 
+  select_rate(method ="rsq", n=c(0.95,1)) |> 
+  select_rate(method="lowest", n=6) |> 
+  plot(type="full") |> 
+  summary(export = TRUE)
+
+## remove lowest slope 
+apoly_rmr <- apoly_rmr |> 
+  filter(rate.output != max(rate.output))
+```
+
+#### Results 
+```{r} 
+results <- data.frame(Clutch = Clutch, 
+                      Replicate =Replicate, 
+                      Male=Male, 
+                      Female=Female,
+                      Population = Population, 
+                      Tank = Tank,
+                      Mass = mass, 
+                      Chamber = chamber, 
+                      System = system1,
+                      Volume = chamber_vol, 
+                      Date_tested = Date_tested, 
+                      Date_analysed =Date_analysed,
+                      Swim = Swim,
+                      Salinity = salinity, 
+                      Temperature = as.numeric(unique(firesting2$temperature)), 
+                      Resting_kg = mean(apoly_rmr$rate.output*-1), 
+                      Resting =  mean(apoly_rmr$rate.output*-1)*mass)
+knitr::kable(results, "simple") 
+```
+
+### Maximum oxygen consumption 
+#### Data manipulation 
+```{r}
+firesting2_mmr <- firesting_mmr |>
+  select(c(1:3,5:9)) |> 
+  rename(TIME = `Time (HH:MM:SS)`, 
+         dTIME = `Time (s)`, 
+         ch1 = Ch1...5, 
+         ch2 = Ch2...6,
+         ch3 = Ch3...7, 
+         ch4 = Ch4...8, 
+         temperature= `Ch 1...9`) |> 
+  select(c("dTIME",all_of(chamber),"TIME","temperature"))
+```
+
+#### Inspect file 
+```{r}
+inspect(firesting2_mmr, time=1, oxygen=2)
+```
+
+#### Subset data 
+```{r}
+cycle1.start <-  Cycle_1.mmr[1,1]
+cycle1.end <-  tail(Cycle_1.mmr, n=1)[1,1] 
+
+cycle1.start.row <- which(firesting2_mmr$TIME == cycle1.start); cycle1.start
+cycle1.end.row <- which(firesting2_mmr$TIME == cycle1.end); cycle1.end 
+
+cycle1_data <- firesting2_mmr |> 
+  subset_data(from = cycle1.start.row, 
+              to = cycle1.end.row, 
+              by = "row") 
+
+inspect(cycle1_data)
+```
+
+#### Calculating MMR 
+```{r}
+mmr <- auto_rate(cycle1_data, method = "highest", plot=TRUE, width=60, by="time") |> 
+  summary()
+```
+
+#### Adjusting 
+```{r}
+mmr_adj <- adjust_rate(mmr, by=bg_pre, method = "mean");mmr_adj
+```
+
+#### Converting units 
+```{r}
+mmr_adj2 <- mmr_adj |> 
+  convert_rate(oxy.unit = "%Air", 
+               time.unit = "secs", 
+               output.unit = "mg/h/kg", 
+               volume = chamber_vol,
+               mass = mass,
+               S = salinity, 
+               t = as.numeric(unique(firesting2$temperature)), 
+               P = 1.013253)
+```
+
+#### selecting rates 
+```{r}
+mmr_final <- mmr_adj2 |> 
+  select_rate(method = "rsq", n=c(0.89,1)) |> 
+  select_rate(method = "highest", n=1) |> 
+  plot(type="full") |> 
+  summary(export=TRUE)
+```
+
+#### Results 
+```{r}
+results <-  results |> 
+  mutate(Max_kg = mmr_final$rate.output*-1, 
+         Max = (mmr_final$rate.output*-1)*mass, 
+         AAS_kg = Max_kg - Resting_kg, 
+         AAS = Max - Resting, 
+                      Notes=Notes) 
+knitr::kable(results, "simple") 
+```
+
+### Exporting data 
+```{r}
+resp_results_juveniles <- read_csv("resp_results_juveniles.csv") 
+resp_results_juveniles <- rbind(resp_results_juveniles, results) 
+resp_results_juveniles 
+write.csv(resp_results_juveniles, file="./resp_results_juveniles.csv", row.names = FALSE)
+```
+
+## {-}
+
+
+## 3 
+### Enter specimen data 
+```{r}
+Date_tested="2023-07-01"
+Clutch = "133" 
+Replicate = 3 
+Male = "CARL335" 
+Female = "CARL59"
+Population = "Arlington reef"
+Tank =139 
+mass = 0.0007225 
+chamber = "ch2" 
+Swim = "good/good"
+salinity = 35 
+chamber_vol = chamber2_dell
+system1 = "Dell_7440"
+Date_analysed = Sys.Date() 
+Notes=""
+```
+
+### Importing data from firesting for resting
+```{r}
+##--- time of trail ---## 
+experiment_mmr_date <- "01 July 2023 12 24PM/Oxygen"
+experiment_mmr_date2 <- "01 July 2023 12 24PM/All"
+
+firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_mmr_date,"data raw/Firesting.txt"), 
+    delim = "\t", escape_double = FALSE, 
+    col_types = cols(`Time (HH:MM:SS)` = col_time(format = "%H:%M:%S"), 
+        `Time (s)` = col_number(), Ch1...5 = col_number(), 
+        Ch2...6 = col_number(), Ch3...7 = col_number(), 
+        Ch4...8 = col_number()), trim_ws = TRUE, 
+    skip = 19) 
+
+Cycle_1.mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_mmr_date2,"slopes/Cycle_1.txt"), 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        `Seconds from start for linreg` = col_number(), 
+        `ch1 po2` = col_number(), `ch2 po2` = col_number(), 
+        `ch3 po2` = col_number(), `ch4 po2` = col_number(), 
+        ...8 = col_skip()), trim_ws = TRUE) 
+
+```
+
+### Background rates 
+#### Pre-experiment
+```{r warning=FALSE, message=FALSE}
+setwd(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",preexperiment_date,"slopes")) 
+
+pre_cycle1 <- read_delim("./Cycle_1.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+pre_cycle2 <- read_delim("./Cycle_2.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber)) 
+
+pre_cycle3 <- read_delim("./Cycle_3.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+
+bg_pre1 <- pre_cycle1 %>% calc_rate.bg()
+bg_pre2 <- pre_cycle2 %>% calc_rate.bg() 
+bg_pre3 <- pre_cycle3 %>% calc_rate.bg() 
+
+bg_pre <- mean(bg_pre1$rate.bg.mean,bg_pre2$rate.bg.mean,bg_pre3$rate.bg.mean) 
+bg_pre
+```
+
+#### post-experiment 
+```{r warning=FALSE, message=FALSE}
+setwd(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",postexperiment_date,"slopes")) 
+ 
+
+post_cycle1 <- read_delim("./Cycle_1.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+post_cycle2 <- read_delim("./Cycle_2.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber)) 
+
+post_cycle3 <- read_delim("./Cycle_3.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+bg_post1 <- post_cycle1 %>% calc_rate.bg() 
+bg_post2 <- post_cycle2 %>% calc_rate.bg() 
+bg_post3 <- post_cycle3 %>% calc_rate.bg() 
+
+bg_post <- mean(bg_post1$rate.bg.mean,bg_post2$rate.bg.mean,bg_post3$rate.bg.mean)
+bg_post 
+```
+
+### Resting metabolic rate
+#### Data manipulation 
+```{r}
+firesting2 <- firesting |>
+  select(c(1:3,5:9)) |> 
+  rename(TIME = `Time (HH:MM:SS)`, 
+         dTIME = `Time (s)`, 
+         ch1 = Ch1...5, 
+         ch2 = Ch2...6,
+         ch3 = Ch3...7, 
+         ch4 = Ch4...8, 
+         temperature= `Ch 1...9`) |> 
+  select(c("dTIME",all_of(chamber),"TIME","temperature"))
+```
+
+#### Inspect file 
+```{r}
+inspect(firesting2, time=1, oxygen=2)
+```
+#### subset data 
+```{r warning=FALSE, message=FALSE}
+Tstart.row=which(firesting2$TIME ==Cycle_1$Time[1], firesting$TIME) 
+Tstart.dTIME=as.numeric(firesting2[Tstart.row, "dTIME"]) 
+
+Tend.row=which(firesting2$TIME ==tail(Cycle_last$Time, n=1), firesting$TIME) 
+Tend.dTIME=as.numeric(firesting2[Tend.row, "dTIME"])  
+
+apoly_insp <- firesting2 |> 
+  subset_data(from=Tstart.dTIME, 
+              to=Tend.dTIME, 
+              by="time") 
+
+apoly_insp <- inspect(apoly_insp, time=1, oxygen=2)
+```
+
+#### Extract rates 
+```{r}
+apoly_cr.int <- calc_rate.int(apoly_insp, 
+                              starts=(195+45+300), 
+                              wait=45, 
+                              measure=255, 
+                              by="time", 
+                              plot=TRUE) 
+```
+
+```{r echo=FALSE}
+plot(apoly_cr.int, pos=20:length(apoly_cr.int$subsets)) 
+###plot(apoly_cr.int, pos=40:length(apoly_cr.int$subsets)) 
+
+apoly_cr.int$summary
+```
+
+#### adjust rates for background  
+```{r}
+apoly_cr.int_adj <- adjust_rate(apoly_cr.int, 
+                                by = bg_pre, 
+                                by2 = bg_post, 
+                                time_by = Tstart.row, 
+                                time_by2 = Tend.row,
+                                method = "linear")
+apoly_cr.int_adj$summary
+```
+
+#### Converting units
+```{r}
+apoly_cr.int_adj2 <- apoly_cr.int_adj |> 
+  convert_rate(oxy.unit = "%Air", 
+               time.unit = "secs", 
+               output.unit = "mg/h/kg", 
+               volume = chamber_vol,
+               mass = mass,
+               S = salinity, 
+               t = as.numeric(unique(firesting2$temperature)), 
+               P = 1.013253) 
+apoly_cr.int_adj2$summary
+```
+
+#### Plot curve
+```{r}
+ggplot(as.data.frame(apoly_cr.int_adj2$summary), aes(x=row, y=rate.output*-1)) + 
+  geom_point() + 
+  stat_smooth(method = "lm", formula = y~poly(x, 2), color="red") +
+  theme_classic()
+```
+
+#### Rate filtering 
+```{r}
+apoly_rmr <- apoly_cr.int_adj2 |> 
+  select_rate(method ="rsq", n=c(0.95,1)) |> 
+  select_rate(method="lowest", n=6) |> 
+  plot(type="full") |> 
+  summary(export = TRUE)
+
+## remove lowest slope 
+apoly_rmr <- apoly_rmr |> 
+  filter(rate.output != max(rate.output))
+```
+
+#### Results 
+```{r} 
+results <- data.frame(Clutch = Clutch, 
+                      Replicate =Replicate, 
+                      Male=Male, 
+                      Female=Female,
+                      Population = Population, 
+                      Tank = Tank,
+                      Mass = mass, 
+                      Chamber = chamber, 
+                      System = system1,
+                      Volume = chamber_vol, 
+                      Date_tested = Date_tested, 
+                      Date_analysed =Date_analysed,
+                      Swim = Swim,
+                      Salinity = salinity, 
+                      Temperature = as.numeric(unique(firesting2$temperature)), 
+                      Resting_kg = mean(apoly_rmr$rate.output*-1), 
+                      Resting =  mean(apoly_rmr$rate.output*-1)*mass)
+knitr::kable(results, "simple")  
+```
+
+### Maximum oxygen consumption 
+#### Data manipulation 
+```{r}
+firesting2_mmr <- firesting_mmr |>
+  select(c(1:3,5:9)) |> 
+  rename(TIME = `Time (HH:MM:SS)`, 
+         dTIME = `Time (s)`, 
+         ch1 = Ch1...5, 
+         ch2 = Ch2...6,
+         ch3 = Ch3...7, 
+         ch4 = Ch4...8, 
+         temperature= `Ch 1...9`) |> 
+  select(c("dTIME",all_of(chamber),"TIME","temperature"))
+```
+
+#### Inspect file 
+```{r}
+inspect(firesting2_mmr, time=1, oxygen=2)
+```
+
+#### Subset data 
+```{r}
+cycle1.start <-  Cycle_1.mmr[1,1]
+cycle1.end <-  tail(Cycle_1.mmr, n=1)[1,1] 
+
+cycle1.start.row <- which(firesting2_mmr$TIME == cycle1.start); cycle1.start
+cycle1.end.row <- which(firesting2_mmr$TIME == cycle1.end); cycle1.end 
+
+cycle1_data <- firesting2_mmr |> 
+  subset_data(from = cycle1.start.row, 
+              to = cycle1.end.row, 
+              by = "row") 
+
+inspect(cycle1_data)
+```
+
+#### Calculating MMR 
+```{r}
+mmr <- auto_rate(cycle1_data, method = "highest", plot=TRUE, width=60, by="time") |> 
+  summary()
+```
+
+#### Adjusting 
+```{r}
+mmr_adj <- adjust_rate(mmr, by=bg_pre, method = "mean");mmr_adj
+```
+
+#### Converting units 
+```{r}
+mmr_adj2 <- mmr_adj |> 
+  convert_rate(oxy.unit = "%Air", 
+               time.unit = "secs", 
+               output.unit = "mg/h/kg", 
+               volume = chamber_vol,
+               mass = mass,
+               S = salinity, 
+               t = as.numeric(unique(firesting2$temperature)), 
+               P = 1.013253)
+```
+
+#### selecting rates 
+```{r}
+mmr_final <- mmr_adj2 |> 
+  select_rate(method = "rsq", n=c(0.89,1)) |> 
+  select_rate(method = "highest", n=1) |> 
+  plot(type="full") |> 
+  summary(export=TRUE)
+```
+
+#### Results 
+```{r}
+results <-  results |> 
+  mutate(Max_kg = mmr_final$rate.output*-1, 
+         Max = (mmr_final$rate.output*-1)*mass, 
+         AAS_kg = Max_kg - Resting_kg, 
+         AAS = Max - Resting, 
+                      Notes=Notes) 
+knitr::kable(results, "simple") 
+```
+
+### Exporting data 
+```{r}
+resp_results_juveniles <- read_csv("resp_results_juveniles.csv") 
+resp_results_juveniles <- rbind(resp_results_juveniles, results) 
+resp_results_juveniles 
+write.csv(resp_results_juveniles, file="./resp_results_juveniles.csv", row.names = FALSE)
+```
+
+## {-}
+
+## 4 
+### Enter specimen data 
+```{r}
+Date_tested="2023-07-01"
+Clutch = "133" 
+Replicate = 4 
+Male = "CARL335" 
+Female = "CARL59"
+Population = "Arlington reef"
+Tank =139 
+mass = 0.0007161 
+chamber = "ch1" 
+Swim = "good/good"
+salinity = 35 
+chamber_vol = chamber1_dell
+system1 = "Dell_7440"
+Date_analysed = Sys.Date() 
+Notes=""
+```
+
+### Importing data from firesting for resting
+```{r}
+##--- time of trail ---## 
+experiment_mmr_date <- "01 July 2023 12 24PM/Oxygen"
+experiment_mmr_date2 <- "01 July 2023 12 24PM/All"
+
+firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_mmr_date,"data raw/Firesting.txt"), 
+    delim = "\t", escape_double = FALSE, 
+    col_types = cols(`Time (HH:MM:SS)` = col_time(format = "%H:%M:%S"), 
+        `Time (s)` = col_number(), Ch1...5 = col_number(), 
+        Ch2...6 = col_number(), Ch3...7 = col_number(), 
+        Ch4...8 = col_number()), trim_ws = TRUE, 
+    skip = 19) 
+
+Cycle_1.mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",experiment_mmr_date2,"slopes/Cycle_1.txt"), 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        `Seconds from start for linreg` = col_number(), 
+        `ch1 po2` = col_number(), `ch2 po2` = col_number(), 
+        `ch3 po2` = col_number(), `ch4 po2` = col_number(), 
+        ...8 = col_skip()), trim_ws = TRUE) 
+
+```
+
+### Background rates 
+#### Pre-experiment
+```{r warning=FALSE, message=FALSE}
+setwd(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",preexperiment_date,"slopes")) 
+
+pre_cycle1 <- read_delim("./Cycle_1.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+pre_cycle2 <- read_delim("./Cycle_2.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber)) 
+
+pre_cycle3 <- read_delim("./Cycle_3.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+
+bg_pre1 <- pre_cycle1 %>% calc_rate.bg()
+bg_pre2 <- pre_cycle2 %>% calc_rate.bg() 
+bg_pre3 <- pre_cycle3 %>% calc_rate.bg() 
+
+bg_pre <- mean(bg_pre1$rate.bg.mean,bg_pre2$rate.bg.mean,bg_pre3$rate.bg.mean) 
+bg_pre
+```
+
+#### post-experiment 
+```{r warning=FALSE, message=FALSE}
+setwd(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell7440/Experiment_",postexperiment_date,"slopes")) 
+ 
+
+post_cycle1 <- read_delim("./Cycle_1.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+post_cycle2 <- read_delim("./Cycle_2.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber)) 
+
+post_cycle3 <- read_delim("./Cycle_3.txt", 
+    delim = ";", escape_double = FALSE, col_types = cols(Time = col_time(format = "%H:%M:%S"), 
+        ...8 = col_skip()), trim_ws = TRUE) %>% 
+  rename(dTIME = `Seconds from start for linreg`, 
+         ch1 =`ch1 po2`, 
+         ch2 =`ch2 po2`, 
+         ch3 =`ch3 po2`, 
+         ch4 =`ch4 po2`) %>% 
+  select(c("Time",chamber))
+
+bg_post1 <- post_cycle1 %>% calc_rate.bg() 
+bg_post2 <- post_cycle2 %>% calc_rate.bg() 
+bg_post3 <- post_cycle3 %>% calc_rate.bg() 
+
+bg_post <- mean(bg_post1$rate.bg.mean,bg_post2$rate.bg.mean,bg_post3$rate.bg.mean)
+bg_post 
+```
+
+### Resting metabolic rate
+#### Data manipulation 
+```{r}
+firesting2 <- firesting |>
+  select(c(1:3,5:9)) |> 
+  rename(TIME = `Time (HH:MM:SS)`, 
+         dTIME = `Time (s)`, 
+         ch1 = Ch1...5, 
+         ch2 = Ch2...6,
+         ch3 = Ch3...7, 
+         ch4 = Ch4...8, 
+         temperature= `Ch 1...9`) |> 
+  select(c("dTIME",all_of(chamber),"TIME","temperature"))
+```
+
+#### Inspect file 
+```{r}
+inspect(firesting2, time=1, oxygen=2)
+```
+#### subset data 
+```{r warning=FALSE, message=FALSE}
+Tstart.row=which(firesting2$TIME ==Cycle_1$Time[1], firesting$TIME) 
+Tstart.dTIME=as.numeric(firesting2[Tstart.row, "dTIME"]) 
+
+Tend.row=which(firesting2$TIME ==tail(Cycle_last$Time, n=1), firesting$TIME) 
+Tend.dTIME=as.numeric(firesting2[Tend.row, "dTIME"])  
+
+apoly_insp <- firesting2 |> 
+  subset_data(from=Tstart.dTIME, 
+              to=Tend.dTIME, 
+              by="time") 
+
+apoly_insp <- inspect(apoly_insp, time=1, oxygen=2)
+```
+
+#### Extract rates 
+```{r}
+apoly_cr.int <- calc_rate.int(apoly_insp, 
+                              starts=(195+45+300), 
+                              wait=45, 
+                              measure=255, 
+                              by="time", 
+                              plot=TRUE)  
+```
+
+```{r echo=FALSE}
+plot(apoly_cr.int, pos=20:length(apoly_cr.int$subsets)) 
+###plot(apoly_cr.int, pos=40:length(apoly_cr.int$subsets)) 
+
+apoly_cr.int$summary
+```
+
+#### adjust rates for background  
+```{r}
+apoly_cr.int_adj <- adjust_rate(apoly_cr.int, 
+                                by = bg_pre, 
+                                by2 = bg_post, 
+                                time_by = Tstart.row, 
+                                time_by2 = Tend.row,
+                                method = "linear")
+apoly_cr.int_adj$summary
+```
+
+#### Converting units
+```{r}
+apoly_cr.int_adj2 <- apoly_cr.int_adj |> 
+  convert_rate(oxy.unit = "%Air", 
+               time.unit = "secs", 
+               output.unit = "mg/h/kg", 
+               volume = chamber_vol,
+               mass = mass,
+               S = salinity, 
+               t = as.numeric(unique(firesting2$temperature)), 
+               P = 1.013253) 
+apoly_cr.int_adj2$summary
+```
+
+#### Plot curve
+```{r}
+ggplot(as.data.frame(apoly_cr.int_adj2$summary), aes(x=row, y=rate.output*-1)) + 
+  geom_point() + 
+  stat_smooth(method = "lm", formula = y~poly(x, 2), color="red") +
+  theme_classic()
+```
+
+#### Rate filtering 
+```{r}
+apoly_rmr <- apoly_cr.int_adj2 |> 
+  select_rate(method ="rsq", n=c(0.95,1)) |> 
+  select_rate(method="lowest", n=6) |> 
+  plot(type="full") |> 
+  summary(export = TRUE)
+
+## remove lowest slope 
+apoly_rmr <- apoly_rmr |> 
+  filter(rate.output != max(rate.output))
+```
+
+#### Results 
+```{r} 
+results <- data.frame(Clutch = Clutch, 
+                      Replicate =Replicate, 
+                      Male=Male, 
+                      Female=Female,
+                      Population = Population, 
+                      Tank = Tank,
+                      Mass = mass, 
+                      Chamber = chamber, 
+                      System = system1,
+                      Volume = chamber_vol, 
+                      Date_tested = Date_tested, 
+                      Date_analysed =Date_analysed,
+                      Swim = Swim,
+                      Salinity = salinity, 
+                      Temperature = as.numeric(unique(firesting2$temperature)), 
+                      Resting_kg = mean(apoly_rmr$rate.output*-1), 
+                      Resting =  mean(apoly_rmr$rate.output*-1)*mass)
+knitr::kable(results, "simple")  
+```
+
+### Maximum oxygen consumption 
+#### Data manipulation 
+```{r}
+firesting2_mmr <- firesting_mmr |>
+  select(c(1:3,5:9)) |> 
+  rename(TIME = `Time (HH:MM:SS)`, 
+         dTIME = `Time (s)`, 
+         ch1 = Ch1...5, 
+         ch2 = Ch2...6,
+         ch3 = Ch3...7, 
+         ch4 = Ch4...8, 
+         temperature= `Ch 1...9`) |> 
+  select(c("dTIME",all_of(chamber),"TIME","temperature"))
+```
+
+#### Inspect file 
+```{r}
+inspect(firesting2_mmr, time=1, oxygen=2)
+```
+
+#### Subset data 
+```{r}
+cycle1.start <-  Cycle_1.mmr[1,1]
+cycle1.end <-  tail(Cycle_1.mmr, n=1)[1,1] 
+
+cycle1.start.row <- which(firesting2_mmr$TIME == cycle1.start); cycle1.start
+cycle1.end.row <- which(firesting2_mmr$TIME == cycle1.end); cycle1.end 
+
+cycle1_data <- firesting2_mmr |> 
+  subset_data(from = cycle1.start.row, 
+              to = cycle1.end.row, 
+              by = "row") 
+
+inspect(cycle1_data)
+```
+
+#### Calculating MMR 
+```{r}
+mmr <- auto_rate(cycle1_data, method = "highest", plot=TRUE, width=60, by="time") |> 
+  summary()
+```
+
+#### Adjusting 
+```{r}
+mmr_adj <- adjust_rate(mmr, by=bg_pre, method = "mean");mmr_adj
+```
+
+#### Converting units 
+```{r}
+mmr_adj2 <- mmr_adj |> 
+  convert_rate(oxy.unit = "%Air", 
+               time.unit = "secs", 
+               output.unit = "mg/h/kg", 
+               volume = chamber_vol,
+               mass = mass,
+               S = salinity, 
+               t = as.numeric(unique(firesting2$temperature)), 
+               P = 1.013253)
+```
+
+#### selecting rates 
+```{r}
+mmr_final <- mmr_adj2 |> 
+  select_rate(method = "rsq", n=c(0.89,1)) |> 
+  select_rate(method = "highest", n=1) |> 
+  plot(type="full") |> 
+  summary(export=TRUE)
+```
+
+#### Results 
+```{r}
+results <-  results |> 
+  mutate(Max_kg = mmr_final$rate.output*-1, 
+         Max = (mmr_final$rate.output*-1)*mass, 
+         AAS_kg = Max_kg - Resting_kg, 
+         AAS = Max - Resting, 
+                      Notes=Notes) 
+knitr::kable(results, "simple") 
+```
+
+### Exporting data 
+```{r}
+resp_results_juveniles <- read_csv("resp_results_juveniles.csv") 
+resp_results_juveniles <- rbind(resp_results_juveniles, results) 
+resp_results_juveniles 
+write.csv(resp_results_juveniles, file="./resp_results_juveniles.csv", row.names = FALSE)
+```
+
+## {-}
+
