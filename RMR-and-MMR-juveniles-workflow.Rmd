@@ -1,5 +1,5 @@
 ---
-title: "MMR-and-RMR-workflow-Clutch99"
+title: "MMR-and-RMR-workflow-Clutch86"
 author: "Elliott Schmidt"
 date: "`r Sys.Date()`"
 output:
@@ -39,12 +39,12 @@ setwd("[PATH TO DIRECTORY]")
 # System1 - Dell
 ### Importing data from firesting for resting
 ```{r warning=FALSE, message=FALSE}
-preexperiment_date <- "11 May 2023 09 46AM/All"
-postexperiment_date <- "11 May 2023 02 54PM/All"
+preexperiment_date <- "05 May 2023 10 57AM/All"
+postexperiment_date <- "05 May 2023 03 14PM/All"
 
 ##--- last fish run in trial ---##
-experiment_date <- "11 May 2023 11 05AM/Oxygen"
-experiment_date2 <- "11 May 2023 11 05AM/All"
+experiment_date <- "05 May 2023 12 03PM/Oxygen"
+experiment_date2 <- "05 May 2023 12 03PM/All"
 
 firesting <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell/Experiment_",experiment_date,"data raw/Firesting.txt"), 
     delim = "\t", escape_double = FALSE, 
@@ -72,12 +72,12 @@ Cycle_last <-read_delim(paste("C:/Users/jc527762/OneDrive - James Cook Universit
 # System2 - Asus 
 ### Importing data from firesting for resting
 ```{r warning=FALSE, message=FALSE}
-preexperiment_date_asus <- "11 May 2023 10 03AM/All"
-postexperiment_date_asus <- "11 May 2023 03 04PM/All"
+preexperiment_date_asus <- "05 May 2023 11 06AM/All"
+postexperiment_date_asus <- "05 May 2023 04 17PM/All"
 
 ##--- last fish run in trial ---##
-experiment_date_asus <- "11 May 2023 11 46AM/Oxygen"
-experiment_date2_asus <- "11 May 2023 11 46AM/All"
+experiment_date_asus <- "05 May 2023 01 03PM/Oxygen"
+experiment_date2_asus <- "05 May 2023 01 03PM/All"
 
 firesting_asus <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Asus/Experiment_",experiment_date_asus,"data raw/Firesting.txt"), 
     delim = "\t", escape_double = FALSE, 
@@ -114,13 +114,13 @@ chamber2_asus = 0.04573
 chamber3_asus = 0.04551
 chamber4_asus = 0.04791
 
-Date_tested="2023-05-11"
-Clutch = "99" 
-Male = "CARL335" 
-Female = "CARL359"
-Population = "Arlington reef"
-Tank =106 
-salinity =36 
+Date_tested="2023-05-05"
+Clutch = "86" 
+Male = "CPRE391" 
+Female = "CPRE390"
+Population = "Pretty patches"
+Tank =363 
+salinity =35 
 Date_analysed = Sys.Date() 
 ```
 
@@ -129,7 +129,7 @@ Date_analysed = Sys.Date()
 ### Enter specimen data 
 ```{r}
 Replicate = 1 
-mass = 0.0008021 
+mass = 0.0006884 
 chamber = "ch4" 
 Swim = "good/good"
 chamber_vol = chamber4_dell
@@ -137,8 +137,8 @@ system1 = "Dell"
 Notes=""
 
 ##--- time of trail ---## 
-experiment_mmr_date <- "11 May 2023 10 35AM/Oxygen"
-experiment_mmr_date2 <- "11 May 2023 10 35AM/All"
+experiment_mmr_date <- "05 May 2023 11 34AM/Oxygen"
+experiment_mmr_date2 <- "05 May 2023 11 34AM/All"
 
 firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell/Experiment_",experiment_mmr_date,"data raw/Firesting.txt"), 
     delim = "\t", escape_double = FALSE, 
@@ -461,7 +461,7 @@ write.csv(resp_results_juveniles, file="./resp_results_juveniles.csv", row.names
 ### Enter specimen data 
 ```{r}
 Replicate = 2 
-mass = 0.0007579 
+mass = 0.0004854 
 chamber = "ch3" 
 Swim = "good/good"
 chamber_vol = chamber3_dell
@@ -469,8 +469,8 @@ system1 = "Dell"
 Notes=""
 
 ##--- time of trail ---## 
-experiment_mmr_date <- "11 May 2023 10 46AM/Oxygen"
-experiment_mmr_date2 <- "11 May 2023 10 46AM/All"
+experiment_mmr_date <- "05 May 2023 11 45AM/Oxygen"
+experiment_mmr_date2 <- "05 May 2023 11 45AM/All"
 
 firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell/Experiment_",experiment_mmr_date,"data raw/Firesting.txt"), 
     delim = "\t", escape_double = FALSE, 
@@ -792,16 +792,16 @@ write.csv(resp_results_juveniles, file="./resp_results_juveniles.csv", row.names
 ### Enter specimen data 
 ```{r}
 Replicate = 3 
-mass = 0.0006600 
+mass = 0.0008507 
 chamber = "ch2" 
 Swim = "good/good"
 chamber_vol = chamber2_dell
 system1 = "Dell"
-Notes="check max"
+Notes=""
 
 ##--- time of trail ---## 
-experiment_mmr_date <- "11 May 2023 10 56AM/Oxygen"
-experiment_mmr_date2 <- "11 May 2023 10 56AM/All"
+experiment_mmr_date <- "05 May 2023 11 53AM/Oxygen"
+experiment_mmr_date2 <- "05 May 2023 11 53AM/All"
 
 firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell/Experiment_",experiment_mmr_date,"data raw/Firesting.txt"), 
     delim = "\t", escape_double = FALSE, 
@@ -1124,16 +1124,16 @@ write.csv(resp_results_juveniles, file="./resp_results_juveniles.csv", row.names
 ### Enter specimen data 
 ```{r}
 Replicate = 4 
-mass = 0.0009960
+mass = 0.0006750
 chamber = "ch1" 
 Swim = "good/good"
 chamber_vol = chamber1_dell
 system1 = "Dell"
-Notes=""
+Notes="check max"
 
 ##--- time of trail ---## 
-experiment_mmr_date <- "11 May 2023 11 05AM/Oxygen"
-experiment_mmr_date2 <- "11 May 2023 11 05AM/All"
+experiment_mmr_date <- "05 May 2023 12 03PM/Oxygen"
+experiment_mmr_date2 <- "05 May 2023 12 03PM/All"
 
 firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Dell/Experiment_",experiment_mmr_date,"data raw/Firesting.txt"), 
     delim = "\t", escape_double = FALSE, 
@@ -1456,16 +1456,16 @@ write.csv(resp_results_juveniles, file="./resp_results_juveniles.csv", row.names
 ### Enter specimen data 
 ```{r}
 Replicate = 5 
-mass = 0.0006714 
+mass = 0.0004935 
 chamber = "ch4" 
 Swim = "good/good"
 chamber_vol = chamber4_asus
 system1 = "Asus"
-Notes=""
+Notes="check max; second cycle used for max"
 
 ##--- time of trail ---## 
-experiment_mmr_date_asus <- "11 May 2023 11 19AM/Oxygen"
-experiment_mmr_date2_asus <- "11 May 2023 11 19AM/All"
+experiment_mmr_date_asus <- "05 May 2023 12 50PM/Oxygen"
+experiment_mmr_date2_asus <- "05 May 2023 12 50PM/All"
 
 firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Asus/Experiment_",experiment_mmr_date_asus,"data raw/Firesting.txt"), 
     delim = "\t", escape_double = FALSE, 
@@ -1783,7 +1783,7 @@ write.csv(resp_results_juveniles, file="./resp_results_juveniles.csv", row.names
 ### Enter specimen data 
 ```{r}
 Replicate = 6 
-mass = 0.0009457 
+mass = 0.0006220 
 chamber = "ch3" 
 Swim = "good/good"
 chamber_vol = chamber3_asus
@@ -1791,8 +1791,8 @@ system1 = "Asus"
 Notes=""
 
 ##--- time of trail ---## 
-experiment_mmr_date_asus <- "11 May 2023 11 27AM/Oxygen"
-experiment_mmr_date2_asus <- "11 May 2023 11 27AM/All"
+experiment_mmr_date_asus <- "05 May 2023 12 55PM/Oxygen"
+experiment_mmr_date2_asus <- "05 May 2023 12 55PM/All"
 
 firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Asus/Experiment_",experiment_mmr_date_asus,"data raw/Firesting.txt"), 
     delim = "\t", escape_double = FALSE, 
@@ -2110,7 +2110,7 @@ write.csv(resp_results_juveniles, file="./resp_results_juveniles.csv", row.names
 ### Enter specimen data 
 ```{r}
 Replicate = 7 
-mass = 0.0009375 
+mass = 0.0004869 
 chamber = "ch2" 
 Swim = "good/good"
 chamber_vol = chamber2_asus
@@ -2118,8 +2118,8 @@ system1 = "Asus"
 Notes=""
 
 ##--- time of trail ---## 
-experiment_mmr_date_asus <- "11 May 2023 11 36AM/Oxygen"
-experiment_mmr_date2_asus <- "11 May 2023 11 36AM/All"
+experiment_mmr_date_asus <- "05 May 2023 12 36PM/Oxygen"
+experiment_mmr_date2_asus <- "05 May 2023 12 36PM/All"
 
 firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Asus/Experiment_",experiment_mmr_date_asus,"data raw/Firesting.txt"), 
     delim = "\t", escape_double = FALSE, 
@@ -2437,16 +2437,16 @@ write.csv(resp_results_juveniles, file="./resp_results_juveniles.csv", row.names
 ### Enter specimen data 
 ```{r}
 Replicate = 8 
-mass = 0.0007357 
+mass = 0.0008126 
 chamber = "ch1" 
 Swim = "good/good"
 chamber_vol = chamber1_asus
 system1 = "Asus"
-Notes=""
+Notes="check max"
 
 ##--- time of trail ---## 
-experiment_mmr_date_asus <- "11 May 2023 11 46AM/Oxygen"
-experiment_mmr_date2_asus <- "11 May 2023 11 46AM/All"
+experiment_mmr_date_asus <- "05 May 2023 01 03PM/Oxygen"
+experiment_mmr_date2_asus <- "05 May 2023 01 03PM/All"
 
 firesting_mmr <- read_delim(paste("C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/2023/Resp_backup/2023_Resp/Asus/Experiment_",experiment_mmr_date_asus,"data raw/Firesting.txt"), 
     delim = "\t", escape_double = FALSE, 
