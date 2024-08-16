@@ -1,0 +1,146 @@
+---
+title: "01A.Data_cleaning_adults"
+author: "Elliott Schmidt"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true  
+    toc_depth: 2
+    toc_float: true
+    code_folding: hide
+    collapse: no
+    df_print: paged
+    fig_caption: yes
+    fig_height: 4
+    fig_width: 6
+    highlight: monochrome
+    theme: cerulean
+    latex_engine: xelatex
+---
+
+# Scenario 
+
+This journal article examines heritability in a coral reef fish when fish were exposed to different thermal conditions, including 28.5, 30, and 31.5C. Both adult and juvenile fish were tested for minimum, and maximum oxygen uptake, as well as size. Juveniles were measured at hatching, 1-month, 2-month, and 2.5-months. Analysis below will examine relationships between adults and juveniles. This data analysis is associated with doi: 
+
+# Load packages 
+
+```{r load-packages, warning=FALSE, message=FALSE}
+library(tidyverse) 
+library(readr)
+```
+
+# Set working directory 
+
+```{r setwd-1, echo=FALSE}
+knitr::opts_knit$set(root.dir="C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/Chapter3_Heritability")
+``` 
+
+```{r setwd-2, echo=TRUE, eval=FALSE}
+knitr::opts_knit$set(root.dir=working.dir)
+```
+
+# Import data 
+
+```{r import-data}
+df_adults <- read_csv("resp_results_adults.csv") 
+``` 
+
+# Data manipulations 
+
+```{r data-manipulation}
+df_adults_cleaned <- df_adults |> 
+  mutate(FISH_ID = factor(FISH_ID), 
+         Sex = factor(Sex), 
+         Population = factor(Population), 
+         Tank = factor(Tank), 
+         Chamber = factor(Chamber), 
+         System =factor(System), 
+         Temperature =factor(Temperature), 
+         True_resting=factor(True_resting)) 
+```
+
+# Exploratory data analysis [Forest plot] 
+
+```{r eda-forest plot, warning=FALSE, results='hide'}
+df_males <- df_adults_cleaned |> 
+  filter(Sex == "M")
+df_females <- df_adults_cleaned |> 
+  filter(Sex == "F")
+
+df_mf <- df_males |> 
+  full_join(select(df_females, c("Tank","Temperature","Mass")), by="Tank") |> 
+  mutate(Temperature.x = coalesce(Temperature.x, Temperature.y)) |> 
+  arrange(Temperature.x,desc(Mass.x)) |> 
+  mutate(Tank.x = fct_reorder(Tank, as.numeric(Temperature.x)))
+
+ggplot(data = df_mf, aes(x=reorder(Tank, as.numeric(Temperature.x)), color=Sex)) + 
+  geom_linerange(aes(ymin=Mass.x, ymax=Mass.y)) + 
+  geom_point(aes(y=Mass.x), color="red")+ 
+  geom_point(aes(y=Mass.y), color="blue") +
+  facet_wrap(~Temperature.x) +
+  coord_flip()+
+  ylab("Mass") + xlab("Pair")  +
+  theme_bw() 
+```
+
+## Oxygen uptake {.tabset}
+
+### Resting
+```{r warning=FALSE, results='hide'}
+df_mf <- df_males |> 
+  full_join(select(df_females, c("Tank","Temperature","Resting")), by="Tank") |> 
+  mutate(Temperature.x = coalesce(Temperature.x, Temperature.y)) |> 
+  arrange(Temperature.x,desc(Resting.x)) |> 
+  mutate(Tank.x = fct_reorder(Tank, as.numeric(Temperature.x)))
+
+ggplot(data = df_mf, aes(x=reorder(Tank, as.numeric(Temperature.x), color=Sex))) + 
+  geom_linerange(aes(ymin=Resting.x, ymax=Resting.y)) + 
+  geom_point(aes(y=Resting.x), color="red")+ 
+  geom_point(aes(y=Resting.y), color="blue") +
+  facet_wrap(~Temperature.x) +
+  coord_flip()+
+  ylab("Mass") + xlab("Resting") +
+  theme_bw() + 
+  ylim(0,30)
+```
+
+### Maximum
+```{r warning=FALSE, results='hide'}
+df_mf <- df_males |> 
+  full_join(select(df_females, c("Tank","Temperature","Max")), by="Tank") |> 
+  mutate(Temperature.x = coalesce(Temperature.x, Temperature.y)) |> 
+  arrange(Temperature.x,desc(Max.x)) |> 
+  mutate(Tank.x = fct_reorder(Tank, as.numeric(Temperature.x)))
+
+ggplot(data = df_mf, aes(x=reorder(Tank, as.numeric(Temperature.x), color=Sex))) + 
+  geom_linerange(aes(ymin=Max.x, ymax=Max.y)) + 
+  geom_point(aes(y=Max.x), color="red")+ 
+  geom_point(aes(y=Max.y), color="blue") +
+  facet_wrap(~Temperature.x) +
+  coord_flip()+
+  ylab("Mass") + xlab("Max") +
+  theme_bw() + 
+  ylim(0,30)
+```
+
+### AAS
+```{r warning=FALSE, results='hide'}
+df_mf <- df_males |> 
+  full_join(select(df_females, c("Tank","Temperature","AAS")), by="Tank") |> 
+  mutate(Temperature.x = coalesce(Temperature.x, Temperature.y)) |> 
+  arrange(Temperature.x,desc(AAS.x)) |> 
+  mutate(Tank.x = fct_reorder(Tank, as.numeric(Temperature.x)))
+
+ggplot(data = df_mf, aes(x=reorder(Tank, as.numeric(Temperature.x), color=Sex))) + 
+  geom_linerange(aes(ymin=AAS.x, ymax=AAS.y)) + 
+  geom_point(aes(y=AAS.x), color="red")+ 
+  geom_point(aes(y=AAS.y), color="blue") +
+  facet_wrap(~Temperature.x) +
+  coord_flip()+
+  ylab("Mass") + xlab("AAS") +
+  theme_bw() + 
+  ylim(0,30)
+```
+
+## {-}
+
