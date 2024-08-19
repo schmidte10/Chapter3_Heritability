@@ -22,67 +22,87 @@ df_jresp$Population <-  fct_collapse(df_jresp$Population,
                                       `Arlington reef` = c("Arlington reef","Arlginton reef")) 
 
 df_jresp$Female <-  fct_collapse(df_jresp$Female, 
-                                  `CARL359`= c("CARL359", "CARL59"))
+                                  `CARL359`= c("CARL359", "CARL59")) 
+
+
 
 #--- data manipulation ---# 
 df_jresp2 <-  df_jresp |> 
   unite("F0", c("Male","Female"), sep="_", remove=FALSE) |>
-  mutate(across(1:11, factor), 
+  mutate(across(1:7, factor), 
          Temperature = factor(Temperature), 
-         True_resting = factor(True_resting))
+         True_resting = factor(True_resting)) 
 
 df_jresp2_rest <- df_jresp2 |> 
   filter(True_resting == "Y")
 
-#--- test code for running figure ---# 
-
-df_jresp2 |> 
-  filter(True_resting == "Y") |>
-  ggplot(aes(x=Clutch, y=Resting, color=Resting)) +
-  geom_point() +
-  scale_colour_gradient(low="black", high="red")+
-  theme_classic()
-
-
-
-
 
 # Define UI for application that draws a histogram
-ui <- page_navbar(
-  title="Respiration (juveniles) Data Quailty Checks", 
-  bg="#2D89C8", 
-  inverse=TRUE, 
-  
-  nav_panel(title="Resting oxygen uptake", 
-              plotOutput("plot_clutch"),
-              plotOutput("plot_mass")),
-  nav_panel(title="Maximum oxygen uptake", 
-            plotOutput("plot_clutch_mmr"),
-            plotOutput("plot_mass_mmr")),
-  nav_panel(title="Absolute aerobic scope", 
-            plotOutput("plot_clutch_aas"),
-            plotOutput("plot_mass_aas")),
-  
-   
-
-    
-    sidebarLayout(
-        sidebarPanel(
-          div(style="display:inline-block", 
-              
-              selectInput( 
-                inputId = "F0", 
-                label = "Unique parentage:", 
-                choices = levels(df_jresp2$F0)
-                ))
-          
-        ),
-
-       
-        navset_card_underline(title="Data quality check")
-           
+ui <- fluidPage( 
+  theme = shinytheme("spacelab"),
+  headerPanel("Data visualisation"), 
+  tabsetPanel( 
+    tabPanel('Resting oxygen uptake', 
+             sidebarLayout( 
+               sidebarPanel(
+                 div(style="display:inline-block", 
+                     selectInput( 
+                       inputId = "F0", 
+                       label = "Unique parentage:", 
+                       choices = levels(df_jresp2$F0), 
+                       width= 200 
+                       
+                     ))),
+                 
+               
+             mainPanel(title="Resting oxygen uptake", 
+                       plotOutput("plot_clutch"),
+                       plotOutput("plot_mass"))
+               
+               )
+             ), 
+    tabPanel('Maximum oxygen uptake', 
+             sidebarLayout( 
+               sidebarPanel(
+                 div(style="display:inline-block", 
+                     selectInput( 
+                       inputId = "F0", 
+                       label = "Unique parentage:", 
+                       choices = levels(df_jresp2$F0), 
+                       width= 200 
+                       
+                     ))),
+               
+               
+               mainPanel(title="Maximum oxygen uptake", 
+                         plotOutput("plot_clutch_mmr"),
+                         plotOutput("plot_mass_mmr"))
+               
+             )
+    ), 
+    tabPanel('Absolute aerobic scope', 
+             sidebarLayout( 
+               sidebarPanel(
+                 div(style="display:inline-block", 
+                     selectInput( 
+                       inputId = "F0", 
+                       label = "Unique parentage:", 
+                       choices = levels(df_jresp2$F0), 
+                       width= 200 
+                       
+                     ))),
+               
+               
+               mainPanel(title="Absolute aerobic scope", 
+                         plotOutput("plot_clutch_aas"),
+                         plotOutput("plot_mass_aas"))
+               
+             )
     )
-)
+    )
+  )
+
+
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
@@ -106,7 +126,7 @@ server <- function(input, output, session) {
         isolate({ 
           ggplot(data= Datafinder_rest(), aes(x=Clutch, y=Resting, color=Clutch)) + 
             geom_point(data=df_jresp2, color="grey66", alpha=0.2) +
-            geom_point() + 
+            geom_point(size=3) + 
             theme_classic()
         })
           }) 
@@ -116,7 +136,8 @@ server <- function(input, output, session) {
       isolate({ 
         ggplot(data=Datafinder_rest(), aes(x=Dry_mass, y=Resting, color=Clutch)) + 
           geom_point(data=df_jresp2, color="grey66", alpha=0.2) + 
-          geom_point() + 
+          geom_point(size=3) + 
+          scale_x_continuous(limits = c(0, 0.001), breaks = seq(0, 0.001, 0.0001)) +
           theme_classic()
         })
       }) 
@@ -126,7 +147,7 @@ server <- function(input, output, session) {
       isolate({ 
         ggplot(data= Datafinder2(), aes(x=Clutch, y=Max, color=Clutch)) + 
           geom_point(data=df_jresp2, color="grey66", alpha=0.2) +
-          geom_point() + 
+          geom_point(size=3) + 
           theme_classic()
       })
     }) 
@@ -136,7 +157,7 @@ server <- function(input, output, session) {
       isolate({ 
         ggplot(data=Datafinder2(), aes(x=Dry_mass, y=Max, color=Clutch)) + 
           geom_point(data=df_jresp2, color="grey66", alpha=0.2) + 
-          geom_point() + 
+          geom_point(size=3) + 
           theme_classic()
       })
     })
@@ -146,7 +167,7 @@ server <- function(input, output, session) {
       isolate({ 
         ggplot(data= Datafinder2(), aes(x=Clutch, y=AAS, color=Clutch)) + 
           geom_point(data=df_jresp2, color="grey66", alpha=0.2) +
-          geom_point() + 
+          geom_point(size=3) + 
           theme_classic()
       })
     }) 
@@ -156,7 +177,7 @@ server <- function(input, output, session) {
       isolate({ 
         ggplot(data=Datafinder2(), aes(x=Dry_mass, y=AAS, color=Clutch)) + 
           geom_point(data=df_jresp2, color="grey66", alpha=0.2) + 
-          geom_point() + 
+          geom_point(size=3) + 
           theme_classic()
       })
     })
