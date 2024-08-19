@@ -1,0 +1,104 @@
+---
+title: "02.Data_analysis"
+author: "Elliott Schmidt"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Load libraries
+
+```{r load-libraries, warning=FALSE}
+library(tidyverse)
+```
+
+# Import data
+
+```{r import-adults, warning=FALSE}
+df_adults <- read_csv("resp_results_adults.csv")
+df_jresp <- read_csv("resp_results_juveniles.csv")
+```
+
+# Data manipulation
+## Adults
+```{r data-manipulation-1}
+df_adults_cleaned <- df_adults |> 
+  mutate(FISH_ID = factor(FISH_ID), 
+         Sex = factor(Sex), 
+         Population = factor(Population), 
+         Tank = factor(Tank), 
+         Chamber = factor(Chamber), 
+         System =factor(System), 
+         Temperature =factor(Temperature), 
+         True_resting=factor(True_resting)) 
+
+df_males <- df_adults_cleaned |> 
+  filter(Sex == "M")
+df_females <- df_adults_cleaned |> 
+  filter(Sex == "F")
+
+df_adults_cleaned2 <- df_males |> 
+  full_join(select(df_females, c("Tank","Temperature","Mass","Resting","Max","AAS","FISH_ID","Sex")), by="Tank") |> 
+  mutate(Temperature.x = coalesce(Temperature.x, Temperature.y), 
+         FISH_ID.x = coalesce(FISH_ID.x, FISH_ID.y),
+         Sex.x = coalesce(Sex.x, Sex.y),
+         Resting.midpoint = (Resting.x+Resting.y)/2, 
+         Max.midpoint = (Max.x+Max.y)/2, 
+         AAS.midpoint = (AAS.x+AAS.y)/2) 
+  
+```
+
+## Juveniles
+```{r data-manipulation-2}
+df_jresp$Population <-  fct_collapse(df_jresp$Population, 
+                                      `Vlassof cay`= c("Vlassof reef", "Vlassof", "Vlassof Cay", "Vlassof cay"), 
+                                      `Arlington reef` = c("Arlington reef","Arlginton reef")) 
+
+df_jresp$Female <-  fct_collapse(df_jresp$Female, 
+                                  `CARL359`= c("CARL359", "CARL59")) 
+
+
+df_jresp2 <-  df_jresp |> 
+  unite("F0", c("Male","Female"), sep="_", remove=FALSE) |>
+  mutate(across(1:7, factor), 
+         Temperature = factor(Temperature), 
+         True_resting = factor(True_resting)) 
+
+#df_jresp2_rest <- df_jresp2 |> 
+  #filter(True_resting == "Y")
+```
+
+## Merging dataframes
+```{r data-manipulation3}
+temp1a <- df_jresp2 |> 
+  mutate(FISH_ID.x = Male)
+temp1b <- df_jresp2 |> 
+  mutate(FISH_ID.y = Female)
+
+temp2a <- temp1a |> 
+  full_join(select(df_adults_cleaned2, c("FISH_ID.x",
+                                          "Sex.x",
+                                          "Resting.x", 
+                                          "Max.x", 
+                                          "AAS.x", 
+                                          "Mass.x")), 
+                    by="FISH_ID.x") |> 
+  filter(!is.na(Resting.x))
+temp2b <- temp1b |> 
+  full_join(select(df_adults_cleaned2, c("FISH_ID.y",
+                            "Sex.y",
+                            "Resting.y", 
+                            "Max.y", 
+                            "AAS.y", 
+                            "Mass.y")), 
+                   by="FISH_ID.y") |> 
+  filter(!is.na(Resting.y))
+
+
+```
+
+# Exploratory analysis 
+
+```{r}
+ggplot()
+```
+
