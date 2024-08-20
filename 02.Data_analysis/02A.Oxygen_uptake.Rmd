@@ -29,6 +29,7 @@ output: html_document
 library(tidyverse) # data manipulation
 library(ggpubr) # producing data exploratory plots
 <<<<<<< HEAD
+<<<<<<< HEAD
 library(modelsummary) # descriptive data 
 library(glmmTMB) # running generalised mixed models 
 library(DHARMa) # model diagnostics 
@@ -39,6 +40,9 @@ library(emmeans) # post-hoc analysis
 =======
 library(tidyverse)
 >>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
+=======
+library(modelsummary) # descriptive data
+>>>>>>> parent of 08b3d12 (completed analysis for resting relationship between offspring and males.)
 =======
 library(modelsummary) # descriptive data
 >>>>>>> parent of 08b3d12 (completed analysis for resting relationship between offspring and males.)
@@ -486,6 +490,7 @@ datasummary(Factor(Temperature) ~ AAS * (NUnique + mean + median + min + max + s
 ```
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 ### Model selection
 
 ```{r}
@@ -630,5 +635,7 @@ ggplot()
 ```
 
 >>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
+=======
+>>>>>>> parent of 08b3d12 (completed analysis for resting relationship between offspring and males.)
 =======
 >>>>>>> parent of 08b3d12 (completed analysis for resting relationship between offspring and males.)
