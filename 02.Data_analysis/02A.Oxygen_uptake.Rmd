@@ -28,6 +28,7 @@ output: html_document
 <<<<<<< HEAD
 library(tidyverse) # data manipulation
 library(ggpubr) # producing data exploratory plots
+<<<<<<< HEAD
 library(modelsummary) # descriptive data 
 library(glmmTMB) # running generalised mixed models 
 library(DHARMa) # model diagnostics 
@@ -38,6 +39,9 @@ library(emmeans) # post-hoc analysis
 =======
 library(tidyverse)
 >>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
+=======
+library(modelsummary) # descriptive data
+>>>>>>> parent of 08b3d12 (completed analysis for resting relationship between offspring and males.)
 ```
 
 # Import data
@@ -373,7 +377,8 @@ ggarrange(plot1, plot2, plot3,
           common.legend = TRUE)
 ```
 
-##  {.unnumbered}
+## {-}
+
 
 # Descriptive statistics {.tabset}
 
@@ -438,7 +443,6 @@ datasummary(Factor(Population) ~ Factor(Temperature)*Factor(Sex),
 ```
 
 Pairs
-
 ```{r}
 datasummary(Factor(Population)*Factor(Temperature.x) ~ AAS.midpoint*(NUnique), 
             data = df_adults_cleaned2, 
@@ -474,34 +478,14 @@ datasummary(Factor(Temperature) ~ AAS * (NUnique + mean + median + min + max + s
             data = df_desc2)
 ```
 
-##  {.unnumbered}
+## {-}
 
-# Relationships {.tabset}
-
-# Offspring-Male
-
-## Fit model [random factors]
-
-### Models
-
+# Fit model [random factors]
 ```{r}
-model1 <- glmmTMB(Resting ~ (1|Clutch), 
-                  family="gaussian",
-                  data = df) 
 
-model2 <- glmmTMB(Resting ~ (1|Clutch) + (1|Population), 
-                  family="gaussian",
-                  data = df) 
-
-model3 <- glmmTMB(Resting ~ (1|Clutch) + (1|Chamber), 
-                  family="gaussian",
-                  data = df) 
-
-model4 <- glmmTMB(Resting ~ (1|Clutch) + (1|Population) + (1|Chamber), 
-                  family="gaussian",
-                  data = df)
 ```
 
+<<<<<<< HEAD
 ### Model selection
 
 ```{r}
@@ -646,3 +630,5 @@ ggplot()
 ```
 
 >>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
+=======
+>>>>>>> parent of 08b3d12 (completed analysis for resting relationship between offspring and males.)
