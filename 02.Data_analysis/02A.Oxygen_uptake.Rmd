@@ -42,11 +42,8 @@ library(tidyverse)
 
 # Import data
 
-<<<<<<< HEAD
+
 ```{r import-adults, warning=FALSE, message=FALSE}
-=======
-```{r import-adults, warning=FALSE}
->>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
 df_adults <- read_csv("resp_results_adults.csv")
 df_jresp <- read_csv("resp_results_juveniles.csv")
 ```
