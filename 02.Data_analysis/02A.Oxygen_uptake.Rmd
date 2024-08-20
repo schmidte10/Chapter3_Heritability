@@ -2,6 +2,7 @@
 title: "02.Data_analysis"
 author: "Elliott Schmidt"
 date: "`r Sys.Date()`"
+<<<<<<< HEAD
 output: 
   html_document: 
     toc: true  
@@ -16,11 +17,15 @@ output:
     highlight: monochrome
     theme: cerulean
     latex_engine: xelatex
+=======
+output: html_document
+>>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
 ---
 
 # Load libraries
 
 ```{r load-libraries, warning=FALSE}
+<<<<<<< HEAD
 library(tidyverse) # data manipulation
 library(ggpubr) # producing data exploratory plots
 library(modelsummary) # descriptive data 
@@ -30,19 +35,30 @@ library(performance) # model diagnostics
 library(ggeffects) # partial effect plots 
 library(car) # running Anova on model 
 library(emmeans) # post-hoc analysis
+=======
+library(tidyverse)
+>>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
 ```
 
 # Import data
 
+<<<<<<< HEAD
 ```{r import-adults, warning=FALSE, message=FALSE}
+=======
+```{r import-adults, warning=FALSE}
+>>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
 df_adults <- read_csv("resp_results_adults.csv")
 df_jresp <- read_csv("resp_results_juveniles.csv")
 ```
 
 # Data manipulation
+<<<<<<< HEAD
 
 ## Adults
 
+=======
+## Adults
+>>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
 ```{r data-manipulation-1}
 df_adults_cleaned <- df_adults |> 
   mutate(FISH_ID = factor(FISH_ID), 
@@ -71,7 +87,10 @@ df_adults_cleaned2 <- df_males |>
 ```
 
 ## Juveniles
+<<<<<<< HEAD
 
+=======
+>>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
 ```{r data-manipulation-2}
 df_jresp$Population <-  fct_collapse(df_jresp$Population, 
                                       `Vlassof cay`= c("Vlassof reef", "Vlassof", "Vlassof Cay", "Vlassof cay"), 
@@ -92,33 +111,51 @@ df_jresp2 <-  df_jresp |>
 ```
 
 ## Merging dataframes
+<<<<<<< HEAD
 
 ```{r data-manipulation-3.0}
+=======
+```{r data-manipulation3}
+>>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
 temp1a <- df_jresp2 |> 
   mutate(FISH_ID.x = Male)
 temp1b <- df_jresp2 |> 
   mutate(FISH_ID.y = Female)
+<<<<<<< HEAD
 ```
 
 ```{r data-manipulation-3.1}
 temp2a <- temp1a |> 
   left_join(select(df_adults_cleaned2, c("FISH_ID.x",
+=======
+
+temp2a <- temp1a |> 
+  full_join(select(df_adults_cleaned2, c("FISH_ID.x",
+>>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
                                           "Sex.x",
                                           "Resting.x", 
                                           "Max.x", 
                                           "AAS.x", 
                                           "Mass.x")), 
+<<<<<<< HEAD
                     by="FISH_ID.x")
 ```
 
 ```{r data-manipulation-3.2}
 temp2b <- temp1b |> 
   left_join(select(df_adults_cleaned2, c("FISH_ID.y",
+=======
+                    by="FISH_ID.x") |> 
+  filter(!is.na(Resting.x))
+temp2b <- temp1b |> 
+  full_join(select(df_adults_cleaned2, c("FISH_ID.y",
+>>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
                             "Sex.y",
                             "Resting.y", 
                             "Max.y", 
                             "AAS.y", 
                             "Mass.y")), 
+<<<<<<< HEAD
                    by="FISH_ID.y") 
 ```
 
@@ -598,3 +635,17 @@ ggplot(data =om.rest.df, aes(y=emmean, x=Resting_MALE)) +
   theme_classic() + 
   theme(legend.position ="bottom")
 ```
+=======
+                   by="FISH_ID.y") |> 
+  filter(!is.na(Resting.y))
+
+
+```
+
+# Exploratory analysis 
+
+```{r}
+ggplot()
+```
+
+>>>>>>> c7a466573d2613990032fff65fd5787ee22969aa
