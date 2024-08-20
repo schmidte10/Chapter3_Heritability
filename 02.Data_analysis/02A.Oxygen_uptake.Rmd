@@ -2,24 +2,41 @@
 title: "02.Data_analysis"
 author: "Elliott Schmidt"
 date: "`r Sys.Date()`"
-output: html_document
+output: 
+  html_document: 
+    toc: true  
+    toc_depth: 2
+    toc_float: true
+    code_folding: show
+    collapse: no
+    df_print: paged
+    fig_caption: yes
+    fig_height: 4
+    fig_width: 6
+    highlight: monochrome
+    theme: cerulean
+    latex_engine: xelatex
 ---
 
 # Load libraries
 
 ```{r load-libraries, warning=FALSE}
-library(tidyverse)
+library(tidyverse) # data manipulation
+library(ggpubr) # producing data exploratory plots
+library(modelsummary) # descriptive data
 ```
 
 # Import data
 
-```{r import-adults, warning=FALSE}
+```{r import-adults, warning=FALSE, message=FALSE}
 df_adults <- read_csv("resp_results_adults.csv")
 df_jresp <- read_csv("resp_results_juveniles.csv")
 ```
 
 # Data manipulation
+
 ## Adults
+
 ```{r data-manipulation-1}
 df_adults_cleaned <- df_adults |> 
   mutate(FISH_ID = factor(FISH_ID), 
@@ -48,6 +65,7 @@ df_adults_cleaned2 <- df_males |>
 ```
 
 ## Juveniles
+
 ```{r data-manipulation-2}
 df_jresp$Population <-  fct_collapse(df_jresp$Population, 
                                       `Vlassof cay`= c("Vlassof reef", "Vlassof", "Vlassof Cay", "Vlassof cay"), 
@@ -68,37 +86,358 @@ df_jresp2 <-  df_jresp |>
 ```
 
 ## Merging dataframes
-```{r data-manipulation3}
+
+```{r data-manipulation-3.0}
 temp1a <- df_jresp2 |> 
   mutate(FISH_ID.x = Male)
 temp1b <- df_jresp2 |> 
   mutate(FISH_ID.y = Female)
+```
 
+```{r data-manipulation-3.1}
 temp2a <- temp1a |> 
-  full_join(select(df_adults_cleaned2, c("FISH_ID.x",
+  left_join(select(df_adults_cleaned2, c("FISH_ID.x",
                                           "Sex.x",
                                           "Resting.x", 
                                           "Max.x", 
                                           "AAS.x", 
                                           "Mass.x")), 
-                    by="FISH_ID.x") |> 
-  filter(!is.na(Resting.x))
+                    by="FISH_ID.x")
+```
+
+```{r data-manipulation-3.2}
 temp2b <- temp1b |> 
-  full_join(select(df_adults_cleaned2, c("FISH_ID.y",
+  left_join(select(df_adults_cleaned2, c("FISH_ID.y",
                             "Sex.y",
                             "Resting.y", 
                             "Max.y", 
                             "AAS.y", 
                             "Mass.y")), 
-                   by="FISH_ID.y") |> 
-  filter(!is.na(Resting.y))
-
-
+                   by="FISH_ID.y") 
 ```
 
-# Exploratory analysis 
+```{r data-manipulation-3.3}
+df_merged <- temp2a |> 
+  left_join(select(temp2b, c("Clutch","Replicate", 
+                             "FISH_ID.y",
+                             "Resting.y", 
+                             "Max.y", 
+                             "AAS.y", 
+                             "Mass.y")), 
+            by=c("Clutch","Replicate"))
+```
+
+```{r data-manipulation-3.4}
+df <- df_merged |> 
+  mutate(Resting_MALE =Resting.x, 
+         Max_MALE =Max.x, 
+         AAS_MALE =AAS.x, 
+         Mass_MALE =Mass.x, 
+         FISH_ID.y =FISH_ID.x,#makes more sense for males to be .y instead of .x
+         FISH_ID.x =FISH_ID.x, 
+         Resting_FEMALE =Resting.y, 
+         Max_FEMALE =Max.y, 
+         AAS_FEMALE =AAS.y, 
+         Mass_FEMALE =Mass.y) |> 
+  mutate(Resting_MID =(Resting_MALE+Resting_FEMALE)/2, 
+         Max_MID =(Max_MALE+Max_FEMALE)/2, 
+         AAS_MID =(AAS_MALE+AAS_FEMALE)/2) # easier to do it again
+```
+
+# Exploratory analysis {.tabset}
+
+## Offspring-Male
+
+```{r eda-male, warning=FALSE, message=FALSE, fig.width=8, fig.height=9}
+plot1 <- ggplot(df, aes(x=Resting_MALE, y=Resting, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-male relationship") + 
+  xlab("") + 
+  ylab("Resting (parental-male)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot2 <- ggplot(df, aes(x=Max_MALE, y=Max, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-male relationship") +
+  xlab("") + 
+  ylab("Max (parental-male)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot3 <- ggplot(df, aes(x=AAS_MALE, y=AAS, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-male relationship") +
+  xlab("") + 
+  ylab("AAS (parental-male)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot4 <- ggplot(df, aes(x=Resting_MALE, y=Resting, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-male relationship") + 
+  xlab("Resting (offspring)") + 
+  ylab("Resting (parental-male)") +
+  theme_classic() + 
+  theme(legend.position = "bottom")
+
+plot5 <- ggplot(df, aes(x=Max_MALE, y=Max, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-male relationship") +
+  xlab("Max (offspring)") + 
+  ylab("Max (parental-male)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot6 <- ggplot(df, aes(x=AAS_MALE, y=AAS, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-male relationship") +
+  xlab("AAS (offspring)") + 
+  ylab("AAS (parental-male)") +
+  theme_classic() + 
+  theme(legend.position = 'none') 
+
+ggarrange(plot1, plot2, plot3, 
+          plot4, plot5, plot6,
+          ncol = 3, 
+          nrow = 3)
+```
+
+## Offspring-Female
+
+```{r eda-female, warning=FALSE, message=FALSE, fig.width=8, fig.height=9}
+plot1 <- ggplot(df, aes(x=Resting_FEMALE, y=Resting, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-female relationship") + 
+  xlab("") + 
+  ylab("Resting (parental-female)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot2 <- ggplot(df, aes(x=Max_FEMALE, y=Max, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-female relationship") +
+  xlab("") + 
+  ylab("Max (parental-female)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot3 <- ggplot(df, aes(x=AAS_FEMALE, y=AAS, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-female relationship") +
+  xlab("") + 
+  ylab("AAS (parental-female)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot4 <- ggplot(df, aes(x=Resting_FEMALE, y=Resting, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-female relationship") + 
+  xlab("Resting (offspring)") + 
+  ylab("Resting (parental-female)") +
+  theme_classic() + 
+  theme(legend.position = "bottom")
+
+plot5 <- ggplot(df, aes(x=Max_FEMALE, y=Max, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-female relationship") +
+  xlab("Max (offspring)") + 
+  ylab("Max (parental-female)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot6 <- ggplot(df, aes(x=AAS_FEMALE, y=AAS, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-female relationship") +
+  xlab("AAS (offspring)") + 
+  ylab("AAS (parental-female)") +
+  theme_classic() + 
+  theme(legend.position = 'none') 
+
+ggarrange(plot1, plot2, plot3, 
+          plot4, plot5, plot6,
+          ncol = 3, 
+          nrow = 3)
+```
+
+## Offspring-Midpoint
+
+```{r eda-midpoint, warning=FALSE, message=FALSE, fig.width=8, fig.height=9}
+plot1 <- ggplot(df, aes(x=Resting_MID, y=Resting, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-midpoint relationship") + 
+  xlab("") + 
+  ylab("Resting (parental-midpoint)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot2 <- ggplot(df, aes(x=Max_MID, y=Max, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-midpoint relationship") +
+  xlab("") + 
+  ylab("Max (parental-midpoint)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot3 <- ggplot(df, aes(x=AAS_MID, y=AAS, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-midpoint relationship") +
+  xlab("") + 
+  ylab("AAS (parental-midpoint)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot4 <- ggplot(df, aes(x=Resting_MID, y=Resting, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-midpoint relationship") + 
+  xlab("Resting (offspring)") + ylab("Resting (parental-midpoint)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot5 <- ggplot(df, aes(x=Max_MID, y=Max, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-midpoint relationship") +
+  xlab("Max (offspring)") + ylab("Max (parental-midpoint)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot6 <- ggplot(df, aes(x=AAS_MID, y=AAS, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-midpoint relationship") +
+  xlab("AAS (offspring)") + ylab("AAS (parental-midpoint)") +
+  theme_classic() + 
+  theme(legend.position = 'none') 
+
+ggarrange(plot1, plot2, plot3, 
+          plot4, plot5, plot6,
+          ncol = 3, 
+          nrow = 3, 
+          common.legend = TRUE)
+```
+
+## {-}
+
+
+# Descriptive statistics {.tabset}
+
+## Juveniles - overview
+
+### Overview
+
+```{r echo=FALSE}
+datasummary(Factor(Population) ~ Factor(Temperature), 
+            data = df, 
+            fmt = "%.0f")
+```
 
 ```{r}
-ggplot()
+datasummary(Factor(F0) ~ Factor(Temperature), 
+            data = df, 
+            fmt = "%.0f")
+```
+
+## Juveniles
+
+### Resting oxygen uptake
+
+```{r echo=FALSE}
+df_desc1 <- df |> 
+  drop_na(Resting) 
+datasummary(Factor(Temperature) ~ Resting * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = df_desc1)
+```
+
+### Maximum oxygen uptake
+
+```{r echo=FALSE}
+df_desc1 <- df |> 
+  drop_na(Max) 
+datasummary(Factor(Temperature) ~ Max * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = df_desc1)
+```
+
+### Absolute aerobic scope
+
+```{r echo=FALSE}
+df_desc1 <- df |> 
+  drop_na(AAS) 
+datasummary(Factor(Temperature) ~ AAS * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = df_desc1)
+```
+
+## Adults - overview
+
+### Overview
+
+```{r}
+datasummary(Factor(Population) ~ Factor(Temperature), 
+            data = df_adults_cleaned, 
+            fmt = "%.0f")
+
+
+datasummary(Factor(Population) ~ Factor(Temperature)*Factor(Sex), 
+            data = df_adults_cleaned, 
+            fmt = "%.0f")
+```
+
+Pairs
+```{r}
+datasummary(Factor(Population)*Factor(Temperature.x) ~ AAS.midpoint*(NUnique), 
+            data = df_adults_cleaned2, 
+            fmt = "%.0f")
+```
+
+## Adults
+
+### Resting oxygen uptake
+
+```{r echo=FALSE}
+df_desc2 <- df_adults_cleaned |> 
+  drop_na(Resting) 
+datasummary(Factor(Temperature) ~ Resting * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = df_desc2)
+```
+
+### Maximum oxygen uptake
+
+```{r echo=FALSE}
+df_desc1 <- df_adults_cleaned |> 
+  drop_na(Max) 
+datasummary(Factor(Temperature) ~ Max * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = df_desc2)
+```
+
+### Absolute aerobic scope
+
+```{r echo=FALSE}
+df_desc1 <- df_adults_cleaned |> 
+  drop_na(AAS) 
+datasummary(Factor(Temperature) ~ AAS * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = df_desc2)
+```
+
+## {-}
+
+# Fit model [random factors]
+```{r}
+
 ```
 
