@@ -1,0 +1,807 @@
+---
+title: "02.Data_analysis"
+author: "Elliott Schmidt"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true  
+    toc_depth: 2
+    toc_float: true
+    code_folding: show
+    collapse: no
+    df_print: paged
+    fig_caption: yes
+    fig_height: 4
+    fig_width: 6
+    highlight: monochrome
+    theme: cerulean
+    latex_engine: xelatex
+---
+
+# Load libraries
+
+```{r load-libraries, warning=FALSE, message=FALSE}
+library(tidyverse) # data manipulation
+library(ggpubr) # producing data exploratory plots
+library(modelsummary) # descriptive data 
+library(glmmTMB) # running generalised mixed models 
+library(DHARMa) # model diagnostics 
+library(performance) # model diagnostics  
+library(ggeffects) # partial effect plots 
+library(car) # running Anova on model 
+library(emmeans) # post-hoc analysis
+```
+
+# Import data
+
+```{r import-adults, warning=FALSE, message=FALSE}
+df_adults <- read_csv("resp_results_adults.csv")
+df_jresp <- read_csv("resp_results_juveniles.csv")
+```
+
+# Data manipulation
+
+## Adults
+
+```{r data-manipulation-1}
+df_adults_cleaned <- df_adults |> 
+  mutate(FISH_ID = factor(FISH_ID), 
+         Sex = factor(Sex), 
+         Population = factor(Population), 
+         Tank = factor(Tank), 
+         Chamber = factor(Chamber), 
+         System =factor(System), 
+         Temperature =factor(Temperature), 
+         True_resting=factor(True_resting)) 
+
+df_males <- df_adults_cleaned |> 
+  filter(Sex == "M")
+df_females <- df_adults_cleaned |> 
+  filter(Sex == "F")
+
+df_adults_cleaned2 <- df_males |> 
+  full_join(select(df_females, c("Tank","Temperature","Mass","Resting","Max","AAS","FISH_ID","Sex")), by="Tank") |> 
+  mutate(Temperature.x = coalesce(Temperature.x, Temperature.y), 
+         FISH_ID.x = coalesce(FISH_ID.x, FISH_ID.y),
+         Sex.x = coalesce(Sex.x, Sex.y),
+         Resting.midpoint = (Resting.x+Resting.y)/2, 
+         Max.midpoint = (Max.x+Max.y)/2, 
+         AAS.midpoint = (AAS.x+AAS.y)/2) 
+  
+```
+
+## Juveniles
+
+```{r data-manipulation-2}
+df_jresp$Population <-  fct_collapse(df_jresp$Population, 
+                                      `Vlassof cay`= c("Vlassof reef", "Vlassof", "Vlassof Cay", "Vlassof cay"), 
+                                      `Arlington reef` = c("Arlington reef","Arlginton reef")) 
+
+#df_jresp$Female <-  fct_collapse(df_jresp$Female, 
+                                  #`CARL359`= c("CARL359", "CARL59")) 
+
+
+df_jresp2 <-  df_jresp |> 
+  unite("F0", c("Male","Female"), sep="_", remove=FALSE) |>
+  mutate(across(1:7, factor), 
+         Temperature = factor(Temperature), 
+         True_resting = factor(True_resting)) 
+
+#df_jresp2_rest <- df_jresp2 |> 
+  #filter(True_resting == "Y")
+```
+
+## Merging dataframes
+
+```{r data-manipulation-3.0}
+temp1a <- df_jresp2 |> 
+  mutate(FISH_ID.x = Male)
+temp1b <- df_jresp2 |> 
+  mutate(FISH_ID.y = Female)
+```
+
+```{r data-manipulation-3.1}
+temp2a <- temp1a |> 
+  left_join(select(df_adults_cleaned2, c("FISH_ID.x",
+                                          "Sex.x",
+                                          "Resting.x", 
+                                          "Max.x", 
+                                          "AAS.x", 
+                                          "Mass.x")), 
+                    by="FISH_ID.x")
+```
+
+```{r data-manipulation-3.2}
+temp2b <- temp1b |> 
+  left_join(select(df_adults_cleaned2, c("FISH_ID.y",
+                            "Sex.y",
+                            "Resting.y", 
+                            "Max.y", 
+                            "AAS.y", 
+                            "Mass.y")), 
+                   by="FISH_ID.y") 
+```
+
+```{r data-manipulation-3.3}
+df_merged <- temp2a |> 
+  left_join(select(temp2b, c("Clutch","Replicate", 
+                             "FISH_ID.y",
+                             "Resting.y", 
+                             "Max.y", 
+                             "AAS.y", 
+                             "Mass.y")), 
+            by=c("Clutch","Replicate"))
+```
+
+```{r data-manipulation-3.4}
+df <- df_merged |> 
+  mutate(Resting_MALE =Resting.x, 
+         Max_MALE =Max.x, 
+         AAS_MALE =AAS.x, 
+         Mass_MALE =Mass.x, 
+         FISH_ID.y =FISH_ID.x,#makes more sense for males to be .y instead of .x
+         FISH_ID.x =FISH_ID.x, 
+         Resting_FEMALE =Resting.y, 
+         Max_FEMALE =Max.y, 
+         AAS_FEMALE =AAS.y, 
+         Mass_FEMALE =Mass.y) |> 
+  mutate(Resting_MID =(Resting_MALE+Resting_FEMALE)/2, 
+         Max_MID =(Max_MALE+Max_FEMALE)/2, 
+         AAS_MID =(AAS_MALE+AAS_FEMALE)/2) # easier to do it again
+```
+
+# Exploratory analysis {.tabset}
+
+## Offspring-Male
+
+```{r eda-male, warning=FALSE, message=FALSE, fig.width=8, fig.height=9}
+plot1 <- ggplot(df, aes(x=Resting_MALE, y=Resting, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-male relationship") + 
+  xlab("") + 
+  ylab("Resting (parental-male)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot2 <- ggplot(df, aes(x=Max_MALE, y=Max, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-male relationship") +
+  xlab("") + 
+  ylab("Max (parental-male)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot3 <- ggplot(df, aes(x=AAS_MALE, y=AAS, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-male relationship") +
+  xlab("") + 
+  ylab("AAS (parental-male)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot4 <- ggplot(df, aes(x=Resting_MALE, y=Resting, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-male relationship") + 
+  xlab("Resting (offspring)") + 
+  ylab("Resting (parental-male)") +
+  theme_classic() + 
+  theme(legend.position = "bottom")
+
+plot5 <- ggplot(df, aes(x=Max_MALE, y=Max, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-male relationship") +
+  xlab("Max (offspring)") + 
+  ylab("Max (parental-male)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot6 <- ggplot(df, aes(x=AAS_MALE, y=AAS, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-male relationship") +
+  xlab("AAS (offspring)") + 
+  ylab("AAS (parental-male)") +
+  theme_classic() + 
+  theme(legend.position = 'none') 
+
+ggarrange(plot1, plot2, plot3, 
+          plot4, plot5, plot6,
+          ncol = 3, 
+          nrow = 3)
+```
+
+## Offspring-Female
+
+```{r eda-female, warning=FALSE, message=FALSE, fig.width=8, fig.height=9}
+plot1 <- ggplot(df, aes(x=Resting_FEMALE, y=Resting, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-female relationship") + 
+  xlab("") + 
+  ylab("Resting (parental-female)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot2 <- ggplot(df, aes(x=Max_FEMALE, y=Max, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-female relationship") +
+  xlab("") + 
+  ylab("Max (parental-female)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot3 <- ggplot(df, aes(x=AAS_FEMALE, y=AAS, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-female relationship") +
+  xlab("") + 
+  ylab("AAS (parental-female)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot4 <- ggplot(df, aes(x=Resting_FEMALE, y=Resting, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-female relationship") + 
+  xlab("Resting (offspring)") + 
+  ylab("Resting (parental-female)") +
+  theme_classic() + 
+  theme(legend.position = "bottom")
+
+plot5 <- ggplot(df, aes(x=Max_FEMALE, y=Max, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-female relationship") +
+  xlab("Max (offspring)") + 
+  ylab("Max (parental-female)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot6 <- ggplot(df, aes(x=AAS_FEMALE, y=AAS, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-female relationship") +
+  xlab("AAS (offspring)") + 
+  ylab("AAS (parental-female)") +
+  theme_classic() + 
+  theme(legend.position = 'none') 
+
+ggarrange(plot1, plot2, plot3, 
+          plot4, plot5, plot6,
+          ncol = 3, 
+          nrow = 3)
+```
+
+## Offspring-Midpoint
+
+```{r eda-midpoint, warning=FALSE, message=FALSE, fig.width=8, fig.height=9}
+plot1 <- ggplot(df, aes(x=Resting_MID, y=Resting, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-midpoint relationship") + 
+  xlab("") + 
+  ylab("Resting (parental-midpoint)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot2 <- ggplot(df, aes(x=Max_MID, y=Max, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-midpoint relationship") +
+  xlab("") + 
+  ylab("Max (parental-midpoint)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot3 <- ggplot(df, aes(x=AAS_MID, y=AAS, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  geom_point(alpha=0.1) + 
+  ggtitle("Offspring-midpoint relationship") +
+  xlab("") + 
+  ylab("AAS (parental-midpoint)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot4 <- ggplot(df, aes(x=Resting_MID, y=Resting, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-midpoint relationship") + 
+  xlab("Resting (offspring)") + ylab("Resting (parental-midpoint)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot5 <- ggplot(df, aes(x=Max_MID, y=Max, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-midpoint relationship") +
+  xlab("Max (offspring)") + ylab("Max (parental-midpoint)") +
+  theme_classic() + 
+  theme(legend.position = 'none')
+
+plot6 <- ggplot(df, aes(x=AAS_MID, y=AAS, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-midpoint relationship") +
+  xlab("AAS (offspring)") + ylab("AAS (parental-midpoint)") +
+  theme_classic() + 
+  theme(legend.position = 'none') 
+
+ggarrange(plot1, plot2, plot3, 
+          plot4, plot5, plot6,
+          ncol = 3, 
+          nrow = 3, 
+          common.legend = TRUE)
+```
+
+##  {-}
+
+# Descriptive statistics {.tabset}
+
+## Juveniles - overview
+
+### Overview
+
+```{r echo=FALSE}
+datasummary(Factor(Population) ~ Factor(Temperature), 
+            data = df, 
+            fmt = "%.0f")
+```
+
+```{r}
+datasummary(Factor(F0) ~ Factor(Temperature), 
+            data = df, 
+            fmt = "%.0f")
+```
+
+## Juveniles
+
+### Resting oxygen uptake
+
+```{r echo=FALSE}
+df_desc1 <- df |> 
+  drop_na(Resting) 
+datasummary(Factor(Temperature) ~ Resting * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = df_desc1)
+```
+
+### Maximum oxygen uptake
+
+```{r echo=FALSE}
+df_desc1 <- df |> 
+  drop_na(Max) 
+datasummary(Factor(Temperature) ~ Max * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = df_desc1)
+```
+
+### Absolute aerobic scope
+
+```{r echo=FALSE}
+df_desc1 <- df |> 
+  drop_na(AAS) 
+datasummary(Factor(Temperature) ~ AAS * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = df_desc1)
+```
+
+## Adults - overview
+
+### Overview
+
+```{r}
+datasummary(Factor(Population) ~ Factor(Temperature), 
+            data = df_adults_cleaned, 
+            fmt = "%.0f")
+
+
+datasummary(Factor(Population) ~ Factor(Temperature)*Factor(Sex), 
+            data = df_adults_cleaned, 
+            fmt = "%.0f")
+```
+
+Pairs
+
+```{r}
+datasummary(Factor(Population)*Factor(Temperature.x) ~ AAS.midpoint*(NUnique), 
+            data = df_adults_cleaned2, 
+            fmt = "%.0f")
+```
+
+## Adults
+
+### Resting oxygen uptake
+
+```{r echo=FALSE}
+df_desc2 <- df_adults_cleaned |> 
+  drop_na(Resting) 
+datasummary(Factor(Temperature) ~ Resting * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = df_desc2)
+```
+
+### Maximum oxygen uptake
+
+```{r echo=FALSE}
+df_desc1 <- df_adults_cleaned |> 
+  drop_na(Max) 
+datasummary(Factor(Temperature) ~ Max * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = df_desc2)
+```
+
+### Absolute aerobic scope
+
+```{r echo=FALSE}
+df_desc1 <- df_adults_cleaned |> 
+  drop_na(AAS) 
+datasummary(Factor(Temperature) ~ AAS * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = df_desc2)
+```
+
+##  {-}
+
+# Fit Models [random factors]
+
+```{r}
+model1 <- glmmTMB(AAS ~ (1|Clutch), 
+                  family="gaussian",
+                  data = df) 
+
+model2 <- glmmTMB(AAS ~ (1|Clutch) + (1|Population), 
+                  family="gaussian",
+                  data = df) 
+
+model3 <- glmmTMB(AAS ~ (1|Clutch) + (1|Chamber), 
+                  family="gaussian",
+                  data = df) 
+
+model4 <- glmmTMB(AAS ~ (1|Clutch) + (1|Population) + (1|Chamber), 
+                  family="gaussian",
+                  data = df)
+```
+
+##### Model selection
+
+```{r}
+AIC(model1, model2, model3, model4, k=2)
+BIC(model1, model2, model3, model4)
+```
+
+Model1 performs the best therefore only Clutch will be used as a random factor in future models
+
+# Relationships {.tabset}
+
+## Offspring-Male
+
+### Fit model [fixed factors]
+
+After figuring out which random factors will be incorporated into the model we will start to examine out fixed factors. Some fixed factors such as **AAS\_(FE)MALE** and **TEMPERATURE** will be essential to answering questions we have around heritability. Another factor that will be included is **Dry_mass** - which it should be pointed out in this experiment refers to the mass of fish after they were blotted dry with paper towel rather than completely dried out. Larger fish consume more oxygen, therefore, we need to account for this known relationship within our model. Out model will look something like this:
+
+```{r echo=TRUE, eval=FALSE}
+AAS ~ AAS_MALE*Temprature + scale(Dry_mass)
+```
+
+If we had alternative hypotheses to test would would do so at this stage. But in this instance the experiment was designed to answer a specific question via limiting potential covariates.
+
+```{r}
+model1.1 <- glmmTMB(AAS ~ AAS_MALE*Temperature+scale(Dry_mass) + (1|Clutch), 
+                    family="gaussian", 
+                    data=df)
+```
+
+Great now lets check how out model performed via model validation techniques
+
+### Model validation {.tabset}
+
+To check out model performance we will be using two different packages that perform model diagnositics. The packages used here are just examples, there are other packages out there that can provide the same function.
+
+#### DHARMa
+
+```{r}
+model1.1 |> 
+  simulateResiduals(plot=TRUE) 
+```
+
+```{r}
+model1.1 |> 
+  testResiduals(plot=TRUE)
+```
+
+#### performance
+
+```{r}
+model1.1 |> check_model(detrend=FALSE)
+```
+
+### Partial effect plots
+
+```{r}
+model1.1 |> ggemmeans(~AAS_MALE|Temperature) |> 
+  plot(add.data =FALSE)
+```
+
+### Model investigations {.tabset}
+
+#### summary
+
+```{r}
+model1.1 |> summary()
+```
+
+#### ANOVA
+
+```{r}
+model1.1 |> Anova()
+```
+
+#### confint
+
+```{r}
+model1.1 |> confint()
+```
+
+#### r-squared
+
+```{r}
+model1.1 |> r2_nakagawa()
+```
+
+###  {-}
+
+### Pairwise comparisons
+
+#### emmeans [Temperature]
+
+```{r}
+model1.1 |> emmeans(pairwise ~ Temperature, type="response") |> 
+  summary(by=NULL, adjust="sidak", infer=TRUE)
+```
+
+### Summary figure
+
+```{r}
+om.aas <- emmeans(model1.1, ~AAS_MALE*Temperature, 
+                   at =list(AAS_MALE =seq(from=3, to =16, by=.2)))
+
+om.aas.df <- as.data.frame(om.aas)
+
+om.aas.obs <- drop_na(df, AAS_MALE, AAS) |> 
+  mutate(Pred =predict(model1.1, re.form =NA, type='response'), 
+         Resid =residuals(model1.1, type ="response"), 
+         Fit =Pred + Resid) 
+
+om.aas.obs.summarize <- om.aas.obs |> 
+  group_by(Clutch, Temperature) |> 
+  summarise(mean.aas =mean(AAS, na.rm=TRUE),
+            mean.aas_male =mean(AAS_MALE, na.rm=TRUE),
+            sd.aas =sd(AAS, na.rm =TRUE), 
+            n.aas = n()) |> 
+  mutate(se.aas = sd.aas / sqrt(n.aas), 
+         lower.ci.aas =mean.aas - qt(1 - (0.05/2), n.aas -1) * se.aas, 
+         upper.ci.aas =mean.aas + qt(1 - (0.05/2), n.aas - 1) * se.aas)|>
+  ungroup()
+
+ggplot(data =om.aas.df, aes(y=emmean, x=AAS_MALE)) + 
+  stat_smooth(aes(color=Temperature), 
+              method = "lm") + 
+  geom_pointrange(data = om.aas.obs.summarize, aes(y =mean.aas, x=mean.aas_male, 
+                                                    ymin =lower.ci.aas, 
+                                                    ymax =upper.ci.aas, color = Temperature), 
+                  alpha =0.2) + 
+  facet_wrap(~Temperature) +
+  theme_classic() + 
+  theme(legend.position ="bottom")
+```
+ 
+ 
+## Offspring-female 
+
+### Fit model [fixed factors]
+
+```{r}
+fmodel1.1 <- glmmTMB(AAS ~ AAS_FEMALE*Temperature+scale(Dry_mass) + (1|Clutch), 
+                    family="gaussian", 
+                    data=df)
+```
+
+Great now lets check how out model performed via model validation techniques
+
+### Model validation {.tabset}
+
+To check out model performance we will be using two different packages that perform model diagnositics. The packages used here are just examples, there are other packages out there that can provide the same function.
+
+#### DHARMa
+
+```{r}
+fmodel1.1 |> 
+  simulateResiduals(plot=TRUE) 
+```
+
+```{r}
+fmodel1.1 |> 
+  testResiduals(plot=TRUE)
+```
+
+#### performance
+
+```{r}
+fmodel1.1 |> check_model(detrend=FALSE)
+```
+
+### Partial effect plots
+
+```{r}
+fmodel1.1 |> ggemmeans(~AAS_FEMALE|Temperature) |> 
+  plot(add.data =FALSE)
+```
+
+### Model investigations {.tabset}
+
+#### summary
+
+```{r}
+fmodel1.1 |> summary()
+```
+
+#### ANOVA
+
+```{r}
+fmodel1.1 |> Anova()
+```
+
+#### confint
+
+```{r}
+fmodel1.1 |> confint()
+```
+
+#### r-squared
+
+```{r}
+fmodel1.1 |> r2_nakagawa()
+```
+
+###  {-}
+
+### Summary figure
+
+```{r}
+om.aas <- emmeans(fmodel1.1, ~AAS_FEMALE*Temperature, 
+                   at =list(AAS_FEMALE =seq(from=2, to =22, by=.2)))
+
+om.aas.df <- as.data.frame(om.aas)
+
+om.aas.obs <- drop_na(df, AAS_FEMALE, AAS) |> 
+  mutate(Pred =predict(fmodel1.1, re.form =NA, type='response'), 
+         Resid =residuals(fmodel1.1, type ="response"), 
+         Fit =Pred + Resid) 
+
+om.aas.obs.summarize <- om.aas.obs |> 
+  group_by(Clutch, Temperature) |> 
+  summarise(mean.aas =mean(AAS, na.rm=TRUE),
+            mean.aas_female =mean(AAS_FEMALE, na.rm=TRUE),
+            sd.aas =sd(AAS, na.rm =TRUE), 
+            n.aas = n()) |> 
+  mutate(se.aas = sd.aas / sqrt(n.aas), 
+         lower.ci.aas =mean.aas - qt(1 - (0.05/2), n.aas -1) * se.aas, 
+         upper.ci.aas =mean.aas + qt(1 - (0.05/2), n.aas - 1) * se.aas)|>
+  ungroup()
+
+ggplot(data =om.aas.df, aes(y=emmean, x=AAS_FEMALE)) + 
+  stat_smooth(aes(color=Temperature), 
+              method = "lm") + 
+  geom_pointrange(data = om.aas.obs.summarize, aes(y =mean.aas, x=mean.aas_female, 
+                                                    ymin =lower.ci.aas, 
+                                                    ymax =upper.ci.aas, color = Temperature), 
+                  alpha =0.2) + 
+  facet_wrap(~Temperature) +
+  theme_classic() + 
+  theme(legend.position ="bottom")
+``` 
+
+## Offspring-midpoint 
+
+### Fit model [fixed factors]
+
+```{r}
+mid_model1.1 <- glmmTMB(AAS ~ AAS_MID*Temperature+scale(Dry_mass) + (1|Clutch), 
+                    family="gaussian", 
+                    data=df)
+```
+
+Great now lets check how out model performed via model validation techniques
+
+### Model validation {.tabset}
+
+To check out model performance we will be using two different packages that perform model diagnositics. The packages used here are just examples, there are other packages out there that can provide the same function.
+
+#### DHARMa
+
+```{r}
+mid_model1.1 |> 
+  simulateResiduals(plot=TRUE) 
+```
+
+```{r}
+mid_model1.1 |> 
+  testResiduals(plot=TRUE)
+```
+
+#### performance
+
+```{r}
+mid_model1.1 |> check_model(detrend=FALSE)
+```
+
+### Partial effect plots
+
+```{r}
+mid_model1.1 |> ggemmeans(~AAS_MID|Temperature) |> 
+  plot(add.data =FALSE)
+```
+
+### Model investigations {.tabset}
+
+#### summary
+
+```{r}
+mid_model1.1 |> summary()
+```
+
+#### ANOVA
+
+```{r}
+mid_model1.1 |> Anova()
+```
+
+#### confint
+
+```{r}
+mid_model1.1 |> confint()
+```
+
+#### r-squared
+
+```{r}
+mid_model1.1 |> r2_nakagawa()
+```
+
+###  {-}
+
+### Summary figure
+
+```{r}
+om.aas <- emmeans(mid_model1.1, ~AAS_MID*Temperature, 
+                   at =list(AAS_MID =seq(from=2, to =18, by=.2)))
+
+om.aas.df <- as.data.frame(om.aas)
+
+om.aas.obs <- drop_na(df, AAS_MID, AAS) |> 
+  mutate(Pred =predict(mid_model1.1, re.form =NA, type='response'), 
+         Resid =residuals(mid_model1.1, type ="response"), 
+         Fit =Pred + Resid) 
+
+om.aas.obs.summarize <- om.aas.obs |> 
+  group_by(Clutch, Temperature) |> 
+  summarise(mean.aas =mean(AAS, na.rm=TRUE),
+            mean.aas_female =mean(AAS_MID, na.rm=TRUE),
+            sd.aas =sd(AAS, na.rm =TRUE), 
+            n.aas = n()) |> 
+  mutate(se.aas = sd.aas / sqrt(n.aas), 
+         lower.ci.aas =mean.aas - qt(1 - (0.05/2), n.aas -1) * se.aas, 
+         upper.ci.aas =mean.aas + qt(1 - (0.05/2), n.aas - 1) * se.aas)|>
+  ungroup()
+
+ggplot(data =om.aas.df, aes(y=emmean, x=AAS_MID)) + 
+  stat_smooth(aes(color=Temperature), 
+              method = "lm") + 
+  geom_pointrange(data = om.aas.obs.summarize, aes(y =mean.aas, x=mean.aas_female, 
+                                                    ymin =lower.ci.aas, 
+                                                    ymax =upper.ci.aas, color = Temperature), 
+                  alpha =0.2) + 
+  facet_wrap(~Temperature) +
+  theme_classic() + 
+  theme(legend.position ="bottom")
+```
