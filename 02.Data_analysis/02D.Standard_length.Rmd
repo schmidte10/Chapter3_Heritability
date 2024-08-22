@@ -30,9 +30,9 @@ library(performance) # model diagnostics
 library(ggeffects) # partial effect plots 
 library(car) # running Anova on model 
 library(emmeans) # post-hoc analysis
-``` 
+```
 
-# Import data 
+# Import data
 
 ```{r message=FALSE, warning=FALSE}
 m1 <- read_csv("import_data/1_month_size_data_2022_2023.csv") |> 
@@ -57,10 +57,24 @@ m2.5 <- read_csv("import_data/2-5_month_size_data_2022_2023.csv") |>
 adult <- read_csv("import_data/adult_size_2022_2023.csv") |> 
   mutate(across(1:3,factor), 
          MALE = FISH_ID, 
-         FEMALE = FISH_ID)
+         FEMALE = FISH_ID, 
+         POPULATION = str_sub(FISH_ID, 2,4), 
+         POPULATION = case_when(POPULATION == "ARL" ~ "Arlington Reef", 
+                                POPULATION == "SUD" ~ "Sudbury Reef",
+                                POPULATION == "VLA" ~ "Vlassof cay",
+                                POPULATION == "PRE" ~ "Pretty patches", 
+                                TRUE ~ POPULATION)) |> 
+  left_join(select(m1, c("MALE","TEMPERATURE")), 
+             by="MALE") |> 
+  left_join(select(m1, c("FEMALE","TEMPERATURE")), 
+             by="FEMALE") |>
+  distinct() |> 
+  mutate(TEMPERATURE = coalesce(TEMPERATURE.x, TEMPERATURE.y)) |> 
+  drop_na(TEMPERATURE) |> 
+  select(-c("TEMPERATURE.x","TEMPERATURE.y"))
 ```
 
-# Data manipulation 
+# Data manipulation
 
 ```{r}
 m1_df <- m1 |> 
@@ -159,5 +173,123 @@ ggarrange(plot1, plot2, plot3,
           common.legend = TRUE)
 ```
 
-## {-}
+##  {.unnumbered}
+
+# Descriptive statistics {.tabset}
+
+## counts {.tabset}
+
+### Adults
+
+```{r}
+datasummary(Factor(POPULATION) ~ Factor(TEMPERATURE), 
+            data=adult, 
+            fmt = "%.0f")
+```
+
+### 1-months
+
+```{r}
+datasummary(Factor(POPULATION) ~ Factor(TEMPERATURE), 
+            data=m1_df, 
+            fmt = "%.0f")
+```
+
+### 2-months
+
+```{r}
+datasummary(Factor(POPULATION) ~ Factor(TEMPERATURE), 
+            data=m2_df, 
+            fmt = "%.0f")
+```
+
+### 2.5-months
+
+```{r}
+datasummary(Factor(POPULATION) ~ Factor(TEMPERATURE), 
+            data=m2.5_df, 
+            fmt = "%.0f")
+```
+
+###  {.unnumbered}
+
+## standard length {.tabset}
+
+### Adults
+
+```{r}
+datasummary(Factor(TEMPERATURE) ~ SL * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = drop_na(adult, SL),  
+            fmt = "%.2f")
+```
+
+### 1-months
+
+```{r}
+datasummary(Factor(TEMPERATURE) ~ STANDARD_LENGTH * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = drop_na(m1_df, STANDARD_LENGTH),  
+            fmt = "%.2f")
+```
+
+### 2-months
+
+```{r}
+datasummary(Factor(TEMPERATURE) ~ STANDARD_LENGTH * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = drop_na(m2_df, STANDARD_LENGTH),  
+            fmt = "%.2f")
+```
+
+### 2.5-months
+
+```{r}
+datasummary(Factor(TEMPERATURE) ~ STANDARD_LENGTH * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = drop_na(m2.5_df, STANDARD_LENGTH),  
+            fmt = "%.2f")
+```
+
+###  {.unnumbered}
+
+## mass {.tabset}
+
+### Adults
+
+```{r}
+datasummary(Factor(TEMPERATURE) ~ MASS * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = drop_na(adult, MASS),  
+            fmt = "%.2f")
+```
+
+### 1-months
+
+```{r}
+datasummary(Factor(TEMPERATURE) ~ MASS.x * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = drop_na(m1_df, MASS.x),  
+            fmt = "%.2f")
+```
+
+### 2-months
+
+```{r}
+datasummary(Factor(TEMPERATURE) ~ MASS.x * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = drop_na(m2_df, MASS.x),  
+            fmt = "%.2f")
+```
+
+### 2.5-months
+
+```{r}
+datasummary(Factor(TEMPERATURE) ~ MASS.x * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = drop_na(m2.5_df, MASS.x),  
+            fmt = "%.2f")
+```
+
+###  {.unnumbered}
+
+##  {.unnumbered}
+
+# Fit models [random factors]
+
+```{r}
+
+```
 
