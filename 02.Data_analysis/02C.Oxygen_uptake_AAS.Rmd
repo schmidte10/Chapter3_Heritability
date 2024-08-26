@@ -563,7 +563,7 @@ model1.1 |> emmeans(pairwise ~ Temperature, type="response") |>
 
 ```{r}
 om.aas <- emmeans(model1.1, ~AAS_MALE*Temperature, 
-                   at =list(AAS_MALE =seq(from=3, to =16, by=.2)))
+                   at =list(AAS_MALE=seq(from=3, to =16, by=.2)))
 
 om.aas.df <- as.data.frame(om.aas)
 
