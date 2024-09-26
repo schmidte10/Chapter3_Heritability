@@ -36,10 +36,6 @@ library(MuMIn)
 # Import data
 
 ```{r message=FALSE, warning=FALSE}
-egg <- read_csv("import_data/egg_size_data_2022_2023.csv") |> 
-  mutate(across(1:14,factor))  |> 
-  select(!c(NOTES,...18, IMAGE)) 
-
 m1 <- read_csv("import_data/1_month_size_data_2022_2023.csv") |> 
   mutate(across(1:15,factor)) |> 
   mutate(STANDARD_LENGTH =LENGTH, 
@@ -164,35 +160,6 @@ m2.5_df <- m2.5_df_all |>
   distinct() |> 
   mutate(MASS_MIDPOINT =coalesce(MASS_MIDPOINT, MASS_MALE), 
          SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE)) 
-
-clutches <- m2.5_df |> 
-  select(CLUTCH_NUMBER)
-egg_df_all <- egg |> 
-  left_join(select(adult, c("MALE", "SL", "MASS")), 
-            by ="MALE")  |> 
-  mutate(SL_MALE =SL, 
-         MASS_MALE =MASS, 
-         .keep = "unused") |>
-  left_join(select(adult, c("FEMALE", "SL", "MASS")), 
-            by ="FEMALE") |> 
-  mutate(SL_FEMALE =SL, 
-         MASS_FEMALE =MASS, 
-         .keep ="unused") |> 
-  mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
-         MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2) 
-
-egg_df <- egg_df_all |>
-  group_by(CLUTCH_NUMBER) |> 
-  mutate(MEDIAN_EGG_SIZE = median(EGG_SIZE)) |> 
-  drop_na(MEDIAN_EGG_SIZE) |>
-  ungroup()  |> 
-  select(-c("EGG_SIZE","SAMPLE")) |> 
-  distinct() |> 
-  mutate(MASS_MIDPOINT =coalesce(MASS_MIDPOINT, MASS_MALE), 
-         SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE), 
-         SL_FEMALE =coalesce(SL_FEMALE, SL_MALE))  # done for two individuals
-egg_df <- clutches |> 
-  inner_join(egg_df, by="CLUTCH_NUMBER")
 ```
 
 # Exploratory data analysis {.tabset}
@@ -490,7 +457,7 @@ model1a |> testResiduals(plot=T)
 #### Partial effect plots
 
 ```{r}
-model1a |> ggemmeans(~SL_FEMALE|TEMPERATURE) |> 
+model1a |> ggemmeans(~SL_MALE|TEMPERATURE) |> 
   plot(add.data =FALSE) 
 
 model1a |> ggemmeans(~TEMPERATURE) |> 
@@ -736,6 +703,80 @@ df.results.1 <- m1.sl.df |>
                                   TRUE ~ Heritability)) |> 
   inner_join(add.df, by="TEMPERATURE"); df.results.1
 ```
+
+#### BLUPs 
+
+##### Model1
+
+```{r eda-blup}
+ggplot(df.blup, aes(x=as.numeric(AGE), y=STANDARD_LENGTH)) + 
+          #geom_jitter(width =0.2) + 
+          geom_smooth(aes(color=fSL_MALE_GROUP),method="lm", formula=y~as.numeric(x), 
+                      se=FALSE) +
+         facet_wrap(~TEMPERATURE) + 
+  theme_bw()
+```
+
+```{r}
+df.blup <- rbind(m1_df_all,m2_df_all) |> 
+  select(-c(SAMPLE_NO)) |> 
+  rbind(select(m2.5_df_all, -c(AGE_DAYS))) |> 
+  mutate(SL_MALE_GROUP =scale(SL_MALE), 
+         fSL_MALE_GROUP =factor(scale(SL_MALE))) |> 
+  drop_na(STANDARD_LENGTH)
+
+
+model1a.blup <- glmmTMB(STANDARD_LENGTH ~ 1 + as.numeric(AGE)*TEMPERATURE + scale(DENSITY, scale=TRUE, center=TRUE) + (1|fSL_MALE_GROUP), 
+                    family=gaussian(), 
+                    data=df.blup) 
+
+summary(model1a.blup)
+r.squaredGLMM(model1a.blup)
+```
+
+##### Model2
+
+```{r}
+model2a.blup <- glmmTMB(STANDARD_LENGTH ~ 1 + poly(as.numeric(AGE, 2, raw=TRUE))*TEMPERATURE + scale(DENSITY, scale=TRUE, center=TRUE) + (1|fSL_MALE_GROUP), 
+                    family=gaussian(), 
+                    data=df.blup) 
+
+summary(model2a.blup)
+r.squaredGLMM(model2a.blup)
+```
+
+##### Model comparison 
+
+```{r}
+AIC(model1a.blup, model2a.blup)
+```
+
+##### Model 3 
+
+```{r}
+model3a.blup <- glmmTMB(STANDARD_LENGTH ~ 1 + poly(as.numeric(AGE, 2, raw=TRUE))*TEMPERATURE + scale(DENSITY, scale=TRUE, center=TRUE) + (1+AGE|fSL_MALE_GROUP), 
+                    family=gaussian(), 
+                    data=df.blup) 
+
+summary(model3a.blup)
+r.squaredGLMM(model3a.blup)
+```
+
+##### Model comparison 
+
+```{r}
+AIC(model1a.blup, model2a.blup, model3a.blup)
+```
+
+##### BLUPS 
+
+```{r}
+genotype_blups <- ranef(model3a.blup)$fSL_MALE_GROUP
+genotype_index <- as.data.frame(as.factor(c(1:15)))
+genotype_data  <- cbind(genotype_index, genotype_blups)
+colnames(genotype_data) <- c("genotype", "BLUP_int", "BLUP_slope") 
+```
+
 
 ### 2-month
 
@@ -1062,105 +1103,16 @@ df.results.1 |>
   
 ```
 
-## BLUPs 
-
-##### Model1
 
 
 
-```{r}
-df.blup <- rbind(m1_df_all,m2_df_all) |> 
-  select(-c(SAMPLE_NO)) |> 
-  rbind(select(m2.5_df_all, -c(AGE_DAYS))) |> 
-  mutate(SL_MALE_GROUP =scale(SL_MALE), 
-         fSL_MALE_GROUP =factor(scale(SL_MALE))) |> 
-  drop_na(STANDARD_LENGTH) |> 
-  filter(TEMPERATURE == "30")
 
 
-model1a.blup <- glmmTMB(STANDARD_LENGTH ~ 1 + as.numeric(AGE) + scale(DENSITY, scale=TRUE, center=TRUE) + (1|fSL_MALE_GROUP), 
-                    family=gaussian(), 
-                    data=df.blup) 
-
-summary(model1a.blup)
-r.squaredGLMM(model1a.blup)
-```
-
-```{r eda-blup, echo=FALSE}
-ggplot(df.blup, aes(x=as.numeric(AGE), y=STANDARD_LENGTH)) + 
-          #geom_jitter(width =0.2) + 
-          geom_smooth(aes(color=fSL_MALE_GROUP),method="lm", formula=y~as.numeric(x), 
-                      se=FALSE) +
-         facet_wrap(~TEMPERATURE) + 
-  theme_bw()
-```
 
 
-##### Model2
 
-```{r}
-model2a.blup <- glmmTMB(STANDARD_LENGTH ~ 1 + poly(as.numeric(AGE, 2, raw=TRUE)) + scale(DENSITY, scale=TRUE, center=TRUE) + (1|fSL_MALE_GROUP), 
-                    family=gaussian(), 
-                    data=df.blup) 
 
-summary(model2a.blup)
-r.squaredGLMM(model2a.blup)
-```
 
-##### Model comparison 
-
-```{r}
-AIC(model1a.blup, model2a.blup)
-```
-
-##### Model 3 
-
-```{r}
-model3a.blup <- glmmTMB(STANDARD_LENGTH ~ 1 + as.numeric(AGE) + scale(DENSITY, center=TRUE) + (1+as.numeric(AGE)|fSL_MALE_GROUP), 
-                    family=gaussian(), 
-                    data=df.blup) 
-
-summary(model3a.blup)
-r.squaredGLMM(model3a.blup)
-```
-
-##### Model comparison 
-
-```{r}
-AIC(model1a.blup, model2a.blup, model3a.blup)
-```
-
-##### BLUPS 
-
-```{r}
-genotype_blups <- ranef(model1a.blup) 
-genotype_blups$cond$fSL_MALE_GROUP$male_size <- row.names(genotype_blups)
-genotype_index <- as.data.frame(as.factor(c(1:11)))
-genotype_data  <- cbind(genotype_index, genotype_blups$cond$fSL_MALE_GROUP, row.names(genotype_blups$cond$fSL_MALE_GROUP))
-colnames(genotype_data) <- c("sample", "BLUP_int", "genotype") 
-```
-
-##### BLUPS by intercept
-
-```{r}
-genotype_data$genotype_ordered <- factor(genotype_data$genotype, 
-                                         levels = genotype_data$genotype[order(genotype_data$BLUP_int)]) 
-ggplot(genotype_data, aes(genotype_ordered, BLUP_int)) + 
-  geom_point(aes(group = genotype, colour = genotype), size = 4) + 
-  ylab("BLUP intercept estimate") +
-  geom_hline(yintercept = 0, lty = 2) + theme_classic()  + 
-  theme(axis.text.x = element_text(angle =90, vjust=0.5, hjust=1)) 
-
-genotype_data$genotype_ordered <- factor(genotype_data$genotype, 
-                                         levels = genotype_data$genotype[order(genotype_data$BLUP_int)]) 
-genotype_data$genotype <- row.names(genotype_data)
-ggplot(genotype_data, aes(genotype_ordered, BLUP_int)) +
-  geom_bar(stat = "identity", aes(group = genotype, fill = genotype)) +
-  xlab("Genotype (in ranked order of plasticity)") +
-  ylab("Plasticity (BLUP slope estimate)") +
-  theme_classic() + 
-  theme(axis.text.x = element_text(angle =90, vjust=0.5, hjust=1))
-```
 
 
 

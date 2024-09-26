@@ -35,6 +35,9 @@ library(emmeans) # post-hoc analysis
 # Import data
 
 ```{r message=FALSE, warning=FALSE}
+yolk <- read_csv("import_data/YolkSac.csv") |> 
+  mutate(across(1:14, factor))
+
 m1 <- read_csv("import_data/1_month_size_data_2022_2023.csv") |> 
   mutate(across(1:15,factor)) |> 
   mutate(STANDARD_LENGTH =LENGTH, 
@@ -155,6 +158,32 @@ m2.5_df <- m2.5 |>
          SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE))|> 
   drop_na(MASS_MALE)
 
+yolk_df_all <- yolk |> 
+  left_join(select(adult, c("MALE", "SL", "MASS")), 
+            by ="MALE")  |> 
+  mutate(SL_MALE =SL, 
+         MASS_MALE =MASS, 
+         .keep = "unused") |>
+  left_join(select(adult, c("FEMALE", "SL", "MASS")), 
+            by ="FEMALE") |> 
+  mutate(SL_FEMALE =SL, 
+         MASS_FEMALE =MASS, 
+         .keep ="unused") |> 
+  mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
+         MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2) |> 
+  mutate(SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE), 
+         MASS_MIDPOINT =coalesce(MASS_MIDPOINT, MASS_MALE))
+
+yolk_df <- yolk_df_all |>
+  drop_na(YOLK_SAC) |>
+  group_by(CLUTCH_NUMBER) |> 
+  mutate(MEDIAN_YOLK_SAC = median(YOLK_SAC)) |>
+  ungroup() |> 
+  select(-c("YOLK_SAC","SAMPLE","DATA_EGGS_FOUND")) |> 
+  distinct() |> 
+  mutate(SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE), 
+         MASS_FEMALE =coalesce(MASS_FEMALE, MASS_MALE),
+         MASS_MIDPOINT =coalesce(MASS_MIDPOINT, MASS_MALE))
 ```
 
 # Exploratory data analysis {.tabset}
@@ -185,6 +214,37 @@ ggarrange(plot1, plot2, plot3,
           ncol =3, 
           common.legend = TRUE)
 ```
+
+```{r}
+yolk.plot <- drop_na(yolk_df_all, YOLK_SAC) |>
+ggplot(aes(x=reorder(CLUTCH_NUMBER, -YOLK_SAC), y=YOLK_SAC, color=TEMPERATURE)) + 
+  geom_boxplot() +
+  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) +
+  ggtitle("YOLK_SAC") +
+  theme_classic() 
+
+m1.plot <- drop_na(m1_df_all, MEDIAN_MASS) |>
+ggplot(aes(x=reorder(CLUTCH_NUMBER, -YOLK_SAC), y=YOLK_SAC, color=TEMPERATURE)) + 
+  geom_boxplot() +
+  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) +
+  ggtitle("YOLK_SAC") +
+  theme_classic() 
+
+m2.plot <- drop_na(m2_df_all, YOLK_SAC) |>
+ggplot(aes(x=reorder(CLUTCH_NUMBER, -YOLK_SAC), y=YOLK_SAC, color=TEMPERATURE)) + 
+  geom_boxplot() +
+  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) +
+  ggtitle("YOLK_SAC") +
+  theme_classic() 
+
+m3.plot <- drop_na(m2.5_df_all, YOLK_SAC) |>
+ggplot(aes(x=reorder(CLUTCH_NUMBER, -YOLK_SAC), y=YOLK_SAC, color=TEMPERATURE)) + 
+  geom_boxplot() +
+  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) +
+  ggtitle("YOLK_SAC") +
+  theme_classic()
+```
+
 
 ##  {.unnumbered}
 
@@ -382,6 +442,150 @@ MEDIAN_MASS ~ scale(MASS_MALE)*TEMPERATURE:PARENTAL_DAYS_IN_TREATMENT
 
 Lets start fitting models: 
 
+## offspring-female 
+### Yolk Sac
+
+#### Models
+
+##### Main hypothesis
+
+```{r}
+model1a <- glmmTMB(MEDIAN_YOLK_SAC ~ scale(MASS_FEMALE)*TEMPERATURE+(1|FEMALE), 
+                    family=gaussian(), 
+                    data=yolk_df)
+```
+
+##### Alternative hypothesis
+
+```{r}
+model1b <- glmmTMB(MEDIAN_YOLK_SAC ~ scale(SL_FEMALE)*TEMPERATURE*scale(as.numeric(DAYS_IN_TREATMENT))+(1|FEMALE), 
+                    family=gaussian(), 
+                    data=yolk_df)
+```
+
+#### Model selection
+
+```{r}
+AICc(model1a, model1b, k=2) 
+```
+
+Model1a was selected as the best model and will be used going forward.
+
+#### Model validation
+
+##### DHARMa
+
+```{r}
+model1a |> 
+  simulateResiduals(plot=TRUE)  
+
+model1a |> testResiduals(plot=T) 
+```
+
+#### Partial effect plots
+
+```{r}
+model1a |> ggemmeans(~SL_FEMALE|TEMPERATURE) |> 
+  plot(add.data =FALSE) 
+
+model1a |> ggemmeans(~TEMPERATURE) |> 
+  plot(add.data =FALSE) 
+```
+
+#### Model investigation {.tabset}
+
+##### Summary
+
+```{r}
+model1a |> summary()
+```
+
+##### Anova
+
+```{r}
+model1a |> Anova()
+```
+
+##### Confint
+
+```{r}
+model1a |> confint()
+```
+
+##### r-squared
+
+```{r}
+model1a |> r2_nakagawa()
+```
+
+#####  {.unnumbered}
+
+#### Summary figure
+
+```{r}
+
+yolk.emm <- emmeans(model1a, ~ MASS_FEMALE*TEMPERATURE, 
+                 at =list(MASS_FEMALE=seq(from =min(yolk_df$MASS_FEMALE), to =max(yolk_df$MASS_FEMALE), by=1)))
+
+yolk.df <- as.data.frame(yolk.emm)
+
+yolk.obs <- drop_na(yolk_df, MASS_FEMALE, MEDIAN_YOLK_SAC) |> 
+  mutate(Pred =predict(model1a, re.form=NA, type ='response'), 
+         Resid =residuals(model1a, type ='response'), 
+         Fit =Pred+Resid) 
+
+yolk.obs.summarize <-  yolk.obs |> 
+  group_by(CLUTCH_NUMBER, TEMPERATURE) |> 
+  summarise(mean.sl =mean(Fit, na.rm=TRUE), 
+            mean.sl.male =mean(SL_MALE, na.rm = TRUE), 
+            sd.sl =sd(Fit, na.rm =TRUE), 
+            n.sl = n()) |> 
+  mutate(se.sl = sd.sl / sqrt(n.sl), 
+         lower.ci.sl =mean.sl - qt(1-(0.05/2), n.sl -1) * se.sl, 
+         upper.ci.sl =mean.sl + qt(1-(0.05/2), n.sl -1) * se.sl) |> 
+  ungroup()
+
+ggplot(data = yolk.df, aes(x=MASS_FEMALE, y=emmean)) + 
+  stat_smooth(aes(color=TEMPERATURE), 
+              method = "lm") + 
+  geom_point(data = yolk.obs, aes(x =MASS_FEMALE,y =Fit, 
+                                                  color = TEMPERATURE), 
+             size=3) +  
+  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
+  scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
+  facet_wrap(~TEMPERATURE)+
+  xlab("PARENTAL FEMALE STANDARD LENGTH (mm)") + 
+  ylab("yolk size (mm)") + 
+  ggtitle("Offspring-female relationship") +
+  theme_classic()
+```
+#### Slopes 
+
+```{r}
+add.df <- split(yolk.obs, yolk.obs$TEMPERATURE) |> 
+  map(~lm(Fit ~ scale(MASS_FEMALE), data=.)) |> 
+  map(summary) |> 
+  map_dbl("r.squared") |> 
+  as.data.frame()
+
+add.df <- add.df |>
+  mutate(TEMPERATURE = row.names(add.df)) |>
+  rename(r.sqaured =names(add.df)[1]) 
+
+df.results.yolk <- yolk.df |> 
+  group_by(TEMPERATURE) |> 
+  do({ 
+    mod = lm(emmean ~ scale(MASS_FEMALE), data = .) 
+    data.frame(group = "yolk sac", 
+               Slope = coef(mod)[2], 
+               Heritability = coef(mod)[2]*2)
+    }) |> 
+  as.data.frame() |> 
+  mutate(Heritability = case_when(Heritability <=0 ~ 0, 
+                                  TRUE ~ Heritability)) |> 
+  inner_join(add.df, by="TEMPERATURE"); df.results.yolk
+```
+
 ## offspring-male {.tabset}
 
 ### 1-month
@@ -389,21 +593,21 @@ Lets start fitting models:
 #### Models
 ##### Main hypothesis
 ```{r}
-model1a <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MALE)*TEMPERATURE+ scale(DENSITY), 
+model1a <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MALE)*TEMPERATURE+ scale(DENSITY)+(1|FEMALE), 
                     family='gaussian', 
                     data=m1_df)
 ```
 
 ##### Alternative hypothesis 
 ```{r}
-model1b <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MALE)*TEMPERATURE*scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT))+ scale(DENSITY), 
+model1b <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MALE)*TEMPERATURE*scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT))+ scale(DENSITY)+(1|FEMALE), 
                     family='gaussian', 
                     data=m1_df)
 ```
 
 #### Model selection 
 ```{r}
-AIC(model1a, model1b, k=12) 
+AIC(model1a, model1b, k=3) 
 BIC(model1a, model1b)
 ```
 
@@ -500,26 +704,53 @@ ggplot(data = m1.mass.df, aes(x=MASS_MALE, y=emmean)) +
   theme_classic()
 ```
 
+#### Slopes 
+
+```{r}
+add.df <- split(m1.mass.obs, m1.mass.obs$TEMPERATURE) |> 
+  map(~lm(Fit ~ scale(MASS_MALE), data=.)) |> 
+  map(summary) |> 
+  map_dbl("r.squared") |> 
+  as.data.frame()
+
+add.df <- add.df |>
+  mutate(TEMPERATURE = row.names(add.df)) |>
+  rename(r.sqaured =names(add.df)[1]) 
+
+df.results.m1.mass <- m1.mass.df |> 
+  group_by(TEMPERATURE) |> 
+  do({ 
+    mod = lm(emmean ~ scale(MASS_MALE), data = .) 
+    data.frame(group = "1-month", 
+               Slope = coef(mod)[2], 
+               Heritability = coef(mod)[2]*2)
+    }) |> 
+  as.data.frame() |> 
+  mutate(Heritability = case_when(Heritability <=0 ~ 0, 
+                                  TRUE ~ Heritability)) |> 
+  inner_join(add.df, by="TEMPERATURE"); df.results.m1.mass
+```
+
 ### 2-month
 
 #### Models
 ##### Main hypothesis
 ```{r}
-model1a <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MALE)*TEMPERATURE+ scale(DENSITY), 
+model1a <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MALE)*TEMPERATURE+ scale(DENSITY)+(1|FEMALE), 
                     family=gaussian(), 
                     data=m2_df)
 ```
 
 ##### Alternative hypothesis 
 ```{r}
-model1b <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MALE)*TEMPERATURE*scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT))+ scale(DENSITY), 
+model1b <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MALE)*TEMPERATURE*scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT))+ scale(DENSITY)+(1|FEMALE), 
                     family=gaussian(), 
                     data=m2_df)
 ```
 
 #### Model selection 
 ```{r}
-AIC(model1a, model1b, k=12) 
+AIC(model1a, model1b, k=3) 
 BIC(model1a, model1b)
 ```
 
@@ -623,26 +854,51 @@ ggplot(data = m2.mass.df, aes(x=MASS_MALE, y=emmean)) +
   theme_classic()
 ```
 
+```{r}
+add.df <- split(m2.mass.obs, m2.mass.obs$TEMPERATURE) |> 
+  map(~lm(Fit ~ scale(MASS_MALE), data=.)) |> 
+  map(summary) |> 
+  map_dbl("r.squared") |> 
+  as.data.frame()
+
+add.df <- add.df |>
+  mutate(TEMPERATURE = row.names(add.df)) |>
+  rename(r.sqaured =names(add.df)[1]) 
+
+df.results.m2.mass <- m2.mass.df |> 
+  group_by(TEMPERATURE) |> 
+  do({ 
+    mod = lm(emmean ~ scale(MASS_MALE), data = .) 
+    data.frame(group = "2-month", 
+               Slope = coef(mod)[2], 
+               Heritability = coef(mod)[2]*2)
+    }) |> 
+  as.data.frame() |> 
+  mutate(Heritability = case_when(Heritability <=0 ~ 0, 
+                                  TRUE ~ Heritability)) |> 
+  inner_join(add.df, by="TEMPERATURE"); df.results.m2.mass
+```
+
 ### 2.5-month
 
 #### Models
 ##### Main hypothesis
 ```{r}
-model1a <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MALE)*TEMPERATURE+ scale(DENSITY), 
+model1a <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MALE)*TEMPERATURE+ scale(DENSITY)+(1|FEMALE), 
                     family=gaussian(link ="identity"), 
                     data=m2.5_df)
 ```
 
 ##### Alternative hypothesis 
 ```{r}
-model1b <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MALE)*TEMPERATURE*scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT))+ scale(DENSITY), 
+model1b <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MALE)*TEMPERATURE*scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT))+ scale(DENSITY)+(1|FEMALE), 
                     family=gaussian(link ="identity"), 
                     data=m2.5_df)
 ```
 
 #### Model selection 
 ```{r}
-AIC(model1a, model1b, k=13) 
+AIC(model1a, model1b, k=3) 
 BIC(model1a, model1b)
 ```
 
@@ -701,17 +957,17 @@ model1a |> r2_nakagawa()
 
 #### Summary figure 
 ```{r}
-m1.mass <- emmeans(model1a, ~ MASS_MALE*TEMPERATURE, 
+m2.5.mass <- emmeans(model1a, ~ MASS_MALE*TEMPERATURE, 
                  at =list(MASS_MALE=seq(from =min(m2.5_df$MASS_MALE), to =max(m2.5_df$MASS_MALE), by=.25)))
 
-m1.mass.df <- as.data.frame(m1.mass)
+m2.5.mass.df <- as.data.frame(m2.5.mass)
 
-m1.mass.obs <- drop_na(m2.5_df, MASS_MALE, MEDIAN_MASS) |> 
+m2.5.mass.obs <- drop_na(m2.5_df, MASS_MALE, MEDIAN_MASS) |> 
   mutate(Pred =predict(model1a, re.form=NA, type ='response'), 
          Resid =residuals(model1a, type ='response'), 
          Fit =Pred+Resid) 
 
-m1.mass.obs.summarize <-  m1.mass.obs |> 
+m2.5.mass.obs.summarize <-  m2.5.mass.obs |> 
   group_by(CLUTCH_NUMBER, TEMPERATURE) |> 
   summarise(mean.mass =mean(Fit, na.rm=TRUE), 
             mean.mass.male =mean(MASS_MALE, na.rm = TRUE), 
@@ -722,11 +978,11 @@ m1.mass.obs.summarize <-  m1.mass.obs |>
          upper.ci.mass =mean.mass + qt(1-(0.05/2), n.mass -1) * se.mass) |> 
   ungroup()
 
-ggplot(data = m1.mass.df, aes(x=MASS_MALE, y=emmean)) + 
+ggplot(data = m2.5.mass.df, aes(x=MASS_MALE, y=emmean)) + 
   stat_smooth(aes(color=TEMPERATURE), 
               method = "lm", 
               formula = y ~ x) + 
-  geom_pointrange(data = m1.mass.obs.summarize, aes(x =mean.mass.male, 
+  geom_pointrange(data = m2.5.mass.obs.summarize, aes(x =mean.mass.male, 
                                                   y =mean.mass, 
                                                   ymin =lower.ci.mass, 
                                                   ymax =upper.ci.mass, 
@@ -740,386 +996,42 @@ ggplot(data = m1.mass.df, aes(x=MASS_MALE, y=emmean)) +
   theme_classic()
 ```
 
+#### Slopes
+```{r}
+add.df <- split(m2.5.mass.obs, m2.5.mass.obs$TEMPERATURE) |> 
+  map(~lm(Fit ~ scale(MASS_MALE), data=.)) |> 
+  map(summary) |> 
+  map_dbl("r.squared") |> 
+  as.data.frame()
+
+add.df <- add.df |>
+  mutate(TEMPERATURE = row.names(add.df)) |>
+  rename(r.sqaured =names(add.df)[1]) 
+
+df.results.m2.5.mass <- m2.5.mass.df |> 
+  group_by(TEMPERATURE) |> 
+  do({ 
+    mod = lm(emmean ~ scale(MASS_MALE), data = .) 
+    data.frame(group = "2.5-month", 
+               Slope = coef(mod)[2], 
+               Heritability = coef(mod)[2]*2)
+    }) |> 
+  as.data.frame() |> 
+  mutate(Heritability = case_when(Heritability <=0 ~ 0, 
+                                  TRUE ~ Heritability)) |> 
+  inner_join(add.df, by="TEMPERATURE"); df.results.m2.5.mass
+```
+
 ### {-}
-
-## Offspring-Midpoint {.tabset}
-
-### 1-month
-
-#### Models
-##### Main hypothesis
-```{r}
-model1a <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MIDPOINT)*TEMPERATURE + scale(DENSITY), 
-                    family=gaussian(), 
-                    data=m1_df)
-```
-
-##### Alternative hypothesis 
-```{r}
-model1b <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MIDPOINT)*TEMPERATURE*scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT)) + scale(DENSITY), 
-                    family=gaussian(), 
-                    data=m1_df)
-```
-
-#### Model selection 
-```{r}
-AIC(model1a, model1b, k=12) 
-BIC(model1a, model1b)
-```
-
-Model1a was selected as the best model and will be used going forward.  
-
-#### Model validation {.tabset}
-##### DHARMa
-```{r}
-model1a |> 
-  simulateResiduals(plot=TRUE)  
-
-model1a |> testResiduals(plot=T) 
-```
-
-##### performance 
-```{r fig.width=10, fig.height=14}
-model1a |> 
-  check_model(detrend=FALSE)
-```
-
-##### {-}
-
-#### Partial effect plots 
-
-```{r}
-model1a |> ggemmeans(~MASS_MIDPOINT|TEMPERATURE) |> 
-  plot(add.data =FALSE) 
-
-model1a |> ggemmeans(~TEMPERATURE) |> 
-  plot(add.data =FALSE) 
-```
-
-#### Model investigation {.tabset}
-
-##### Summary 
-```{r}
-model1a |> summary()
-```
-
-##### Anova 
-```{r}
-model1a |> Anova()
-```
-
-##### Confint 
-```{r}
-model1a |> confint()
-```
-
-##### r-squared 
-```{r}
-model1a |> r2_nakagawa()
-```
-
-##### {-} 
-
-#### Summary figure 
-```{r}
-m1_df <-  
-  m1_df |> 
-  drop_na(MASS_MIDPOINT)
-
-m1.mass <- emmeans(model1a, ~ MASS_MIDPOINT*TEMPERATURE, 
-                 at =list(MASS_MIDPOINT=seq(from =min(m1_df$MASS_MIDPOINT), to =max(m1_df$MASS_MIDPOINT), by=.25)))
-
-m1.mass.df <- as.data.frame(m1.mass)
-
-m1.mass.obs <- drop_na(m1_df, MASS_MIDPOINT, MEDIAN_MASS) |> 
-  mutate(Pred =predict(model1a, re.form=NA, type ='response'), 
-         Resid =residuals(model1a, type ='response'), 
-         Fit =Pred+Resid) 
-
-m1.mass.obs.summarize <-  m1.mass.obs |> 
-  group_by(CLUTCH_NUMBER, TEMPERATURE) |> 
-  summarise(mean.mass =mean(Fit, na.rm=TRUE), 
-            mean.mass.female =mean(MASS_MIDPOINT, na.rm = TRUE), 
-            sd.mass =sd(Fit, na.rm =TRUE), 
-            n.mass = n()) |> 
-  mutate(se.mass = sd.mass / sqrt(n.mass), 
-         lower.ci.mass =mean.mass - qt(1-(0.05/2), n.mass -1) * se.mass, 
-         upper.ci.mass =mean.mass + qt(1-(0.05/2), n.mass -1) * se.mass) |> 
-  ungroup()
-
-ggplot(data = m1.mass.df, aes(x=MASS_MIDPOINT, y=emmean)) + 
-  stat_smooth(aes(color=TEMPERATURE), 
-              method = "lm") + 
-  geom_pointrange(data = m1.mass.obs.summarize, aes(x =mean.mass.female, 
-                                                  y =mean.mass, 
-                                                  ymin =lower.ci.mass, 
-                                                  ymax =upper.ci.mass, 
-                                                  color = TEMPERATURE)) +  
-  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
-  scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
-  facet_wrap(~TEMPERATURE)+
-  xlab("PARENTAL MIDPOINT STANDARD LENGTH (mm)") + 
-  ylab("OFFSPRING STANDARD LENGTH (mm)") + 
-  ggtitle("Offspring-male relationship") +
-  theme_classic()
-```
-
-### 2-month
-
-#### Models
-##### Main hypothesis
-```{r}
-model1a <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MIDPOINT)*TEMPERATURE + scale(DENSITY), 
-                    family=gaussian(), 
-                    data=m2_df)
-```
-
-##### Alternative hypothesis 
-```{r}
-model1b <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MIDPOINT)*TEMPERATURE*scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT)) + scale(DENSITY),
-                    family=gaussian(), 
-                    data=m2_df)
-```
-
-#### Model selection 
-```{r}
-AIC(model1a, model1b, k=12) 
-BIC(model1a, model1b)
-```
-
-#### Model validation {.tabset}
-##### DHARMa
-```{r}
-model1a |> 
-  simulateResiduals(plot=TRUE)  
-
-model1a |> testResiduals(plot=T) 
-```
-
-##### performance 
-```{r fig.width=10, fig.height=14}
-model1a |> 
-  check_model(detrend=FALSE)
-```
-
-##### {-}
-
-
-#### Model validation {.tabset}
-##### DHARMa
-```{r}
-model1a |> 
-  simulateResiduals(plot=TRUE)  
-
-model1a |> testResiduals(plot=T) 
-```
-
-##### performance 
-```{r fig.width=10, fig.height=14}
-model1a |> 
-  check_model(detrend=FALSE)
-```
-
-##### {-}
-
-#### Partial effect plots 
-
-```{r}
-model1a |> ggemmeans(~MASS_MIDPOINT|TEMPERATURE) |> 
-  plot(add.data =FALSE) 
-
-model1a |> ggemmeans(~TEMPERATURE) |> 
-  plot(add.data =FALSE) 
-```
-
-#### Model investigation {.tabset}
-
-##### Summary 
-```{r}
-model1a |> summary()
-```
-
-##### Anova 
-```{r}
-model1a |> Anova()
-```
-
-##### Confint 
-```{r}
-model1a |> confint()
-```
-
-##### r-squared 
-```{r}
-model1a |> r2_nakagawa()
-```
-
-##### {-} 
-
-#### Summary figure 
-```{r}
-m2_df <-  
-  m2_df |> 
-  drop_na(MASS_MIDPOINT)
-m2.mass <- emmeans(model1a, ~ MASS_MIDPOINT*TEMPERATURE, 
-                 at =list(MASS_MIDPOINT=seq(from =min(m2_df$MASS_MIDPOINT), to =max(m2_df$MASS_MIDPOINT), by=.25)))
-
-m2.mass.df <- as.data.frame(m2.mass)
-
-m2.mass.obs <- drop_na(m2_df, MASS_MIDPOINT,MEDIAN_MASS) |> 
-  mutate(Pred =predict(model1a, re.form=NA, type ='response'), 
-         Resid =residuals(model1a, type ='response'), 
-         Fit =Pred+Resid) 
-
-m2.mass.obs.summarize <-  m2.mass.obs |> 
-  group_by(CLUTCH_NUMBER, TEMPERATURE) |> 
-  summarise(mean.mass =mean(Fit, na.rm=TRUE), 
-            mean.mass.male =mean(MASS_MIDPOINT, na.rm = TRUE), 
-            sd.mass =sd(Fit, na.rm =TRUE), 
-            n.mass = n()) |> 
-  mutate(se.mass = sd.mass / sqrt(n.mass), 
-         lower.ci.mass =mean.mass - qt(1-(0.05/2), n.mass -1) * se.mass, 
-         upper.ci.mass =mean.mass + qt(1-(0.05/2), n.mass -1) * se.mass) |> 
-  ungroup()
-
-ggplot(data = m2.mass.df, aes(x=MASS_MIDPOINT, y=emmean)) + 
-  stat_smooth(aes(color=TEMPERATURE), 
-              method = "lm", 
-              formula = y ~ x) + 
-  geom_pointrange(data = m2.mass.obs.summarize, aes(x =mean.mass.male, 
-                                                  y =mean.mass, 
-                                                  ymin =lower.ci.mass, 
-                                                  ymax =upper.ci.mass, 
-                                                  color = TEMPERATURE)) +  
-  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
-  scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
-  facet_wrap(~TEMPERATURE)+
-  xlab("PARENTAL MIDPOINT STANDARD LENGTH (mm)") + 
-  ylab("OFFSPRING STANDARD LENGTH (mm)") + 
-  ggtitle("Offspring-male relationship") +
-  theme_classic()
-```
-
-### 2.5-month
-
-#### Models
-##### Main hypothesis
-```{r}
-model1a <- glmmTMB(MEDIAN_MASS ~ scale(MASS_MIDPOINT)*TEMPERATURE + scale(DENSITY), 
-                    family=gaussian(link ="identity"), 
-                    data=m2.5_df)
-```
-
-##### Alternative hypothesis 
-```{r}
-model1b <- glmmTMB(MEDIAN_MASS ~ MASS_MIDPOINT*TEMPERATURE*as.numeric(PARENTAL_DAYS_IN_TREATMENT) + scale(DENSITY), 
-                    family=gaussian(link ="identity"), 
-                    data=m2.5_df)
-```
-
-#### Model selection 
-```{r}
-AIC(model1a, model1b, k=12) 
-BIC(model1a, model1b)
-```
-
-Once again the **NULL** model seems to outperform our hypothesis testing models. Let's follow the steps that we conducted for 2-month data and appy a log transformation to our dataset to see if it improved the model. 
-
-
-#### Model validation {.tabset}
-##### DHARMa
-```{r}
-model1a |> 
-  simulateResiduals(plot=TRUE)  
-
-model1a |> testResiduals(plot=T) 
-```
-
-##### performance 
-```{r fig.width=10, fig.height=14}
-model1a |> 
-  check_model(detrend=FALSE)
-```
-
-##### {-}
-
-#### Partial effect plots 
-
-```{r}
-model1a |> ggemmeans(~MASS_MIDPOINT|TEMPERATURE) |> 
-  plot(add.data =FALSE) 
-
-model1a |> ggemmeans(~TEMPERATURE) |> 
-  plot(add.data =FALSE) 
-```
-
-#### Model investigation {.tabset}
-
-##### Summary 
-```{r}
-model1a |> summary()
-```
-
-##### Anova 
-```{r}
-model1a |> Anova()
-```
-
-##### Confint 
-```{r}
-model1a |> confint()
-```
-
-##### r-squared 
-```{r}
-model1a |> r2_nakagawa()
-```
-
-##### {-} 
-
-#### Summary figure 
-```{r}
-m2.5_df <- m2.5_df |> 
-  drop_na(MASS_MIDPOINT)
-m2.5.mass <- emmeans(model1a, ~ MASS_MIDPOINT*TEMPERATURE, 
-                 at =list(MASS_MIDPOINT=seq(from =min(m2.5_df$MASS_MIDPOINT), to =max(m2.5_df$MASS_MIDPOINT), by=.25)))
-
-m2.5.mass.df <- as.data.frame(m2.5.mass)
-
-m2.5.mass.obs <- drop_na(m2.5_df, MASS_MIDPOINT, MEDIAN_MASS) |> 
-  mutate(Pred =predict(model1a, re.form=NA, type ='response'), 
-         Resid =residuals(model1a, type ='response'), 
-         Fit =Pred+Resid) 
-
-m2.5.mass.obs.summarize <-  m2.5.mass.obs |> 
-  group_by(CLUTCH_NUMBER, TEMPERATURE) |> 
-  summarise(mean.mass =mean(Fit, na.rm=TRUE), 
-            mean.mass.male =mean(MASS_MIDPOINT, na.rm = TRUE), 
-            sd.mass =sd(Fit, na.rm =TRUE), 
-            n.mass = n()) |> 
-  mutate(se.mass = sd.mass / sqrt(n.mass), 
-         lower.ci.mass =mean.mass - qt(1-(0.05/2), n.mass -1) * se.mass, 
-         upper.ci.mass =mean.mass + qt(1-(0.05/2), n.mass -1) * se.mass) |> 
-  ungroup()
-
-ggplot(data = m2.5.mass.df, aes(x=MASS_MIDPOINT, y=emmean)) + 
-  stat_smooth(aes(color=TEMPERATURE), 
-              method = "lm", 
-              formula = y ~ x) + 
-  geom_pointrange(data = m2.5.mass.obs.summarize, aes(x =mean.mass.male, 
-                                                  y =mean.mass, 
-                                                  ymin =lower.ci.mass, 
-                                                  ymax =upper.ci.mass, 
-                                                  color = TEMPERATURE)) +  
-  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
-  scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
-  facet_wrap(~TEMPERATURE)+
-  xlab("PARENTAL MALE STANDARD LENGTH (mm)") + 
-  ylab("OFFSPRING STANDARD LENGTH (mm)") + 
-  ggtitle("Offspring-male relationship") +
-  theme_classic()
-```
-
-### {-} 
-
 ## {-}
+# Final table 
+## Final table 
+
+```{r}
+final.table <- df.results.yolk |> 
+  rbind(df.results.m1.mass,df.results.m2.mass, df.results.m2.5.mass) |> 
+  mutate(group=factor(group)) 
+final.table$group <- fct_relevel(final.table$group, "yolk sac")
+final.table |> arrange(TEMPERATURE,group)   
+  
+```

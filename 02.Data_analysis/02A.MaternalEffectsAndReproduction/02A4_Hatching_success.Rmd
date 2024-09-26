@@ -1,0 +1,375 @@
+---
+title: '02A. Maternal Effects and Reproduction: Hatching success'
+author: "Elliott Schmidt"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true  
+    toc_depth: 2
+    toc_float: true
+    code_folding: show
+    collapse: no
+    df_print: paged
+    fig_caption: yes
+    fig_height: 4
+    fig_width: 6
+    highlight: monochrome
+    theme: cerulean
+    latex_engine: xelatex
+---
+
+# Load libraries
+
+```{r load-libraries, warning=FALSE, message=FALSE}
+library(tidyverse) # data manipulation
+library(ggpubr) # producing data exploratory plots
+library(modelsummary) # descriptive data 
+library(glmmTMB) # running generalised mixed models 
+library(DHARMa) # model diagnostics 
+library(performance) # model diagnostics  
+library(ggeffects) # partial effect plots 
+library(car) # running Anova on model 
+library(emmeans) # post-hoc analysis  
+library(MuMIn) # model comparisons
+library(lme4)  #blups
+library(patchwork) #aligning plots
+``` 
+
+# Import data
+
+```{r message=FALSE, warning=FALSE}
+egg <- read_csv("import_data/egg_size_data_2022_2023.csv") |> 
+  mutate(across(1:14,factor))  |> 
+  select(!c(NOTES,...18, IMAGE))   
+
+reprod.data <- read_csv("import_data/clutch_data_2022_2023.csv") |> 
+  mutate(across(c(1:7,16,23), factor))  
+  
+
+m2.5 <- read_csv("import_data/2-5_month_size_data_2022_2023.csv") |> 
+  mutate(across(1:15,factor)) |> 
+  mutate(STANDARD_LENGTH =LENGTH, 
+         .keep = "unused") |> 
+  select(!(NOTES)) |> 
+  select(1:15,"STANDARD_LENGTH","MASS")|> 
+  group_by(CLUTCH_NUMBER) |> 
+  mutate(DENSITY = n()) |> 
+  ungroup()
+
+adult <- read_csv("import_data/adult_size_2022_2023.csv") |> 
+  mutate(across(1:3,factor), 
+         MALE = FISH_ID, 
+         FEMALE = FISH_ID, 
+         POPULATION = str_sub(FISH_ID, 2,4), 
+         POPULATION = case_when(POPULATION == "ARL" ~ "Arlington Reef", 
+                                POPULATION == "SUD" ~ "Sudbury Reef",
+                                POPULATION == "VLA" ~ "Vlassof cay",
+                                POPULATION == "PRE" ~ "Pretty patches", 
+                                TRUE ~ POPULATION)) |> 
+  left_join(select(m2.5, c("MALE","TEMPERATURE")), 
+             by="MALE") |> 
+  left_join(select(m2.5, c("FEMALE","TEMPERATURE")), 
+             by="FEMALE") |>
+  distinct() |> 
+  mutate(TEMPERATURE = coalesce(TEMPERATURE.x, TEMPERATURE.y)) |> 
+  drop_na(TEMPERATURE) |> 
+  select(-c("TEMPERATURE.x","TEMPERATURE.y")) 
+```
+
+# Data manipulation
+
+```{r}
+m2.5_df_all <- m2.5 |> 
+  left_join(select(adult, c("MALE", "SL", "MASS")), 
+            by ="MALE") |> 
+  mutate(SL_MALE =SL, 
+         MASS_MALE =MASS.y, 
+         .keep = "unused") |>
+  left_join(select(adult, c("FEMALE", "SL", "MASS")), 
+            by ="FEMALE") |> 
+  mutate(SL_FEMALE =SL, 
+         MASS_FEMALE =MASS, 
+         .keep ="unused") |> 
+  mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
+         MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2) 
+
+m2.5_df <- m2.5_df_all |>
+  group_by(CLUTCH_NUMBER) |> 
+  mutate(MEDIAN_STANDARD_LENGTH = median(STANDARD_LENGTH)) |>
+  drop_na(MEDIAN_STANDARD_LENGTH) |>
+  ungroup() |> 
+  select(-c("STANDARD_LENGTH","MASS.x")) |> 
+  distinct() |> 
+  mutate(MASS_MIDPOINT =coalesce(MASS_MIDPOINT, MASS_MALE), 
+         SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE)) 
+
+clutches <- m2.5_df |> 
+  select(CLUTCH_NUMBER)
+egg_df_all <- egg |> 
+  left_join(select(adult, c("MALE", "SL", "MASS")), 
+            by ="MALE")  |> 
+  mutate(SL_MALE =SL, 
+         MASS_MALE =MASS, 
+         .keep = "unused") |>
+  left_join(select(adult, c("FEMALE", "SL", "MASS")), 
+            by ="FEMALE") |> 
+  mutate(SL_FEMALE =SL, 
+         MASS_FEMALE =MASS, 
+         .keep ="unused") |> 
+  mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
+         MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2) |> 
+  left_join(select(reprod.data, c("CLUTCH_NUMBER","EGG_COUNT","HATCHING_SUCCESS")), by="CLUTCH_NUMBER")
+
+egg_df <- egg_df_all |>
+  group_by(CLUTCH_NUMBER) |> 
+  mutate(MEDIAN_EGG_SIZE = median(EGG_SIZE)) |> 
+  drop_na(MEDIAN_EGG_SIZE) |>
+  ungroup()  |> 
+  select(-c("EGG_SIZE","SAMPLE")) |> 
+  distinct() |> 
+  mutate(MASS_MIDPOINT =coalesce(MASS_MIDPOINT, MASS_MALE), 
+         SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE), 
+         SL_FEMALE =coalesce(SL_FEMALE, SL_MALE))  # done for two individuals
+  
+egg_df <- clutches |> 
+  inner_join(egg_df, by="CLUTCH_NUMBER") |> 
+  mutate(REPRODUCTIVE_OUTPUT = MEDIAN_EGG_SIZE * EGG_COUNT) |> 
+  drop_na(REPRODUCTIVE_OUTPUT)
+```
+
+# Exploratory data analysis 
+
+```{r fig.width=12, fig.height=6, warning=FALSE, message=FALSE}
+plot1 <- ggplot(egg_df, aes(x=MASS_FEMALE, y=HATCHING_SUCCESS, color=TEMPERATURE)) +
+  geom_point(alpha=0.05) + 
+  stat_smooth(method = "lm", se=FALSE) +
+  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
+  ggtitle("HATCHING SUCCESS") +
+  theme_classic(); plot1
+```
+
+# Descriptive statistics 
+
+```{r}
+datasummary(Factor(POPULATION) ~ Factor(TEMPERATURE), 
+            data=egg_df, 
+            fmt = "%.0f") 
+```
+
+```{r}
+datasummary(Factor(TEMPERATURE) ~ EGG_SIZE * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = drop_na(egg_df_all),  
+            fmt = "%.2f")
+```  
+
+# Fit models [random factors] 
+
+```{r}
+modelNULL <- glmmTMB(HATCHING_SUCCESS ~ 1, 
+                  family=gaussian(),
+                  data =egg_df)
+
+model1 <- glmmTMB(HATCHING_SUCCESS ~ (1|CLUTCH_ORDER), 
+                  family=gaussian(),
+                  data = egg_df)
+
+model2 <- glmmTMB(HATCHING_SUCCESS ~ (1|POPULATION), 
+                  family=gaussian(),
+                  data = egg_df)  
+
+model3 <- glmmTMB(HATCHING_SUCCESS ~ (1|FEMALE), 
+                  family=gaussian(),
+                  data = egg_df)
+
+model4 <- glmmTMB(HATCHING_SUCCESS ~ (1|FEMALE) + (1|POPULATION), 
+                  family=gaussian(),
+                  data = egg_df)
+
+AIC(modelNULL, model1, model2, model3, model4, k=3) 
+BIC(modelNULL, model1, model2, model3, model4)
+```
+
+# Fit fixed factors
+
+## Main hypothesis
+
+```{r}
+model1a <- glmmTMB(HATCHING_SUCCESS ~ scale(MASS_FEMALE, center=TRUE)*TEMPERATURE + (1|FEMALE), 
+                    family=beta_family(), 
+                    data=egg_df)
+```
+
+## Alternative hypothesis
+
+```{r}
+model1b <- glmmTMB(HATCHING_SUCCESS ~ scale(MASS_FEMALE, center=TRUE)*TEMPERATURE + scale(as.numeric(DAYS_IN_TREATMENT), center=TRUE) + scale(MEDIAN_EGG_SIZE, center=TRUE) +  (1|FEMALE), 
+                    family=beta_family(), 
+                    data=egg_df)
+```
+
+## Model selection
+
+```{r}
+AICc(model1a, model1b, k=5) 
+```
+
+# Model validation {.tabset}
+
+## DHARMa
+
+```{r}
+model1a |> 
+  simulateResiduals(plot=TRUE)  
+
+model1a |> testResiduals(plot=T) 
+``` 
+
+## {-}
+
+# Partial effect plots
+
+```{r}
+model1a |> ggemmeans(~MASS_FEMALE) |> 
+  plot(add.data =TRUE) 
+
+model1a |> ggemmeans(~TEMPERATURE) |> 
+  plot(add.data =FALSE)
+
+model1a |> ggemmeans(~MASS_FEMALE|TEMPERATURE) |> 
+  plot(add.data =TRUE)
+``` 
+
+# Model investigation {.tabset}
+
+## Summary
+
+```{r}
+model1a |> summary()
+```
+
+## Anova
+
+```{r}
+model1a |> Anova()
+```
+
+## Confint
+
+```{r}
+model1a |> confint()
+```
+
+## r-squared
+
+```{r}
+model1a |> r2_nakagawa()
+```
+
+## {-}   
+
+# Summary figure 
+
+```{r warning=FALSE}
+egg_df <- egg_df |> drop_na(HATCHING_SUCCESS, MASS_FEMALE)
+egg.emm <- emmeans(model1a, ~ MASS_FEMALE*TEMPERATURE, 
+                 at =list(MASS_FEMALE=seq(from =min(egg_df$MASS_FEMALE), to =max(egg_df$MASS_FEMALE), by=.25)))
+
+hs.df <- as.data.frame(egg.emm)
+
+hs.obs <- egg_df |> 
+  mutate(Pred =predict(model1a, re.form=NA, type ='response'), 
+         Resid =residuals(model1a, type ='response'), 
+         Fit =Pred+Resid) 
+
+hs.obs.summarize <-  hs.obs |> 
+  group_by(FEMALE, TEMPERATURE) |> 
+  summarise(mean.hs =mean(Fit, na.rm=TRUE), 
+            mean.mass.female =mean(MASS_FEMALE, na.rm = TRUE), 
+            min.hs =min(Fit, na.rm=TRUE), 
+            max.hs =max(Fit, na.rm=TRUE),
+            sd.hs =sd(Fit, na.rm =TRUE), 
+            n.hs = n()) |> 
+  mutate(se.hs = sd.hs / sqrt(n.hs), 
+         lower.ci.hs =mean.hs - qt(1-(0.05/2), n.hs -1) * se.hs, 
+         upper.ci.hs =mean.hs + qt(1-(0.05/2), n.hs -1) * se.hs)|> 
+  ungroup()
+
+hs.plot <- ggplot(data = hs.obs, aes(x=MASS_FEMALE, y=Fit)) + 
+  stat_smooth(aes(color=TEMPERATURE), 
+              method = "lm", 
+              formula = y~poly(x, 3), raw=TRUE, se=FALSE) + 
+  #geom_ribbon(aes(ymin=asymp.LCL, ymax=asymp.UCL, fill=TEMPERATURE), alpha=0.5) +
+  geom_pointrange(data = hs.obs.summarize, aes(x =mean.mass.female, 
+                                                  y =mean.hs, 
+                                                  ymin =min.hs, 
+                                                  ymax =max.hs, 
+                                                  color = TEMPERATURE)) +   
+  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
+  scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) + 
+  scale_y_continuous(limits = c(0,1), breaks=seq(0, 1, .1)) +
+  facet_wrap(~TEMPERATURE)+ 
+  xlab("MATERNAL MASS (g)") + 
+  ylab("Hatching success") + 
+  ggtitle("Maternal-hatching success relationship") +
+  theme_classic() + 
+  theme(legend.position = "none")
+
+hs.density <- ggdensity(hs.obs.summarize, x="mean.hs", 
+          color = "TEMPERATURE", 
+          fill = "TEMPERATURE", 
+          rug=TRUE, 
+          add="median", 
+          alpha=0.5,
+          palette=c("#69d7d8","#ff9c56", "#903146")) + 
+  scale_x_continuous(limits = c(0,1), breaks=seq(0, 1, .1)) +
+          clean_theme() + rotate() + 
+  theme(legend.position = c(0.7,0.2), 
+                                legend.box.background = element_rect(color = "black", size=1.5))
+
+hs.plot.final <-hs.plot + hs.density + 
+  plot_layout(guides = "collect" & theme(legend.position = "bottom"), 
+              widths = c(2,1)); hs.plot.final
+```
+
+# slopes
+
+```{r}
+add.df <- split(hs.obs.summarize, hs.obs.summarize$TEMPERATURE) |> 
+  map(~lm(mean.hs ~ mean.mass.female, data=.)) |> 
+  map(summary) |> 
+  map_dbl("r.squared") |> 
+  as.data.frame()
+
+add.df <- add.df |>
+  mutate(TEMPERATURE = row.names(add.df)) |>
+  rename(r.sqaured =names(add.df)[1]) 
+
+df.results.hs <- hs.obs.summarize |> 
+  group_by(TEMPERATURE) |> 
+  do({ 
+    mod = lm(mean.hs ~ mean.mass.female, data = .) 
+    data.frame(group = "egg_count", 
+               Slope = coef(mod)[2], 
+               Heritability = coef(mod)[2]*2)
+    }) |> 
+  as.data.frame() |> 
+  mutate(Heritability = case_when(Heritability <=0 ~ 0, 
+                                  TRUE ~ Heritability)) |> 
+  inner_join(add.df, by="TEMPERATURE"); df.results.hs
+``` 
+
+
+# variation among clutches
+```{r}
+cv_among <- hs.obs |> 
+  distinct(FEMALE, .keep_all=TRUE) |> 
+  group_by(TEMPERATURE) |> 
+  mutate(mean_among =mean(Fit), 
+         sd_among =sd(Fit), 
+         cv_among =(sd_among/mean_among)*100) |> 
+  ungroup() |> 
+  distinct(cv_among, .keep_all = T) |> 
+  select(c("TEMPERATURE","cv_among")) |> 
+  arrange(as.numeric(TEMPERATURE))
+cv_among
+```
