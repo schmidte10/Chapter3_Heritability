@@ -281,7 +281,7 @@ model1b.p2 |> ggemmeans(~PARENTAL_DAYS_IN_TREATMENT) |>
   plot(add.data =TRUE)
 ```
 
-# Model investigation {.tabset}
+Model investigation {.tabset}
 
 ## Summary
 

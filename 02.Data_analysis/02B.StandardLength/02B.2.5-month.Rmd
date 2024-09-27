@@ -282,7 +282,7 @@ m3.plot.final <-m3.plot + m3.density +
 
 ```
 
-# slopes
+# Slopes
 
 ```{r}
 add.df <- split(m3.sl.obs.summarize, m3.sl.obs.summarize$TEMPERATURE) |> 

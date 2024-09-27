@@ -1,0 +1,401 @@
+---
+title: '02E.OxygenUptake: AbsoluateAerobicScope'
+author: "Elliott Schmidt"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true  
+    toc_depth: 2
+    toc_float: true
+    code_folding: show
+    collapse: no
+    df_print: paged
+    fig_caption: yes
+    fig_height: 4
+    fig_width: 6
+    highlight: monochrome
+    theme: cerulean
+    latex_engine: xelatex
+---
+
+# Load libraries
+
+```{r load-libraries, warning=FALSE, message=FALSE}
+library(tidyverse) # data manipulation
+library(ggpubr) # producing data exploratory plots
+library(modelsummary) # descriptive data 
+library(glmmTMB) # running generalised mixed models 
+library(DHARMa) # model diagnostics 
+library(performance) # model diagnostics  
+library(ggeffects) # partial effect plots 
+library(car) # running Anova on model 
+library(emmeans) # post-hoc analysis 
+library(patchwork) # image formatting
+```
+
+# Import data
+
+```{r import-adults, warning=FALSE, message=FALSE}
+df_adults <- read_csv("import_data/resp_results_adults2.csv")
+df_jresp <- read_csv("import_data/resp_results_juveniles.csv")
+``` 
+
+# Data manipulation
+
+## Adults
+
+```{r data-manipulation-1}
+df_adults_cleaned <- df_adults |> 
+  mutate(FISH_ID = factor(FISH_ID), 
+         Sex = factor(Sex), 
+         Population = factor(Population), 
+         Tank = factor(Tank), 
+         Chamber = factor(Chamber), 
+         System =factor(System), 
+         Temperature =factor(Temperature), 
+         True_resting=factor(True_resting)) 
+
+df_males <- df_adults_cleaned |> 
+  filter(Sex == "M")
+df_females <- df_adults_cleaned |> 
+  filter(Sex == "F")
+
+df_adults_cleaned2 <- df_males |> 
+  full_join(select(df_females, c("Tank","Temperature","Mass","Resting","Max","AAS","FISH_ID","Sex")), by="Tank") |> 
+  mutate(Temperature.x = coalesce(Temperature.x, Temperature.y), 
+         FISH_ID.x = coalesce(FISH_ID.x, FISH_ID.y),
+         Sex.x = coalesce(Sex.x, Sex.y), 
+         AAS.x =coalesce(AAS.x, AAS.y), 
+         Mass.x =coalesce(Mass.x, Mass.y)) |> 
+  drop_na(AAS.x)
+  
+```
+
+## Juveniles
+
+```{r data-manipulation-2}
+df_jresp$Population <-  fct_collapse(df_jresp$Population, 
+                                      `Vlassof cay`= c("Vlassof reef", "Vlassof", "Vlassof Cay", "Vlassof cay"), 
+                                      `Arlington reef` = c("Arlington reef","Arlginton reef")) 
+
+#df_jresp$Female <-  fct_collapse(df_jresp$Female, 
+                                  #`CARL359`= c("CARL359", "CARL59")) 
+
+
+df_jresp2 <-  df_jresp |> 
+  unite("F0", c("Male","Female"), sep="_", remove=FALSE) |>
+  mutate(across(1:7, factor), 
+         Temperature = factor(Temperature), 
+         True_resting = factor(True_resting)) 
+
+#df_jresp2_rest <- df_jresp2 |> 
+  #filter(True_resting == "Y")
+```
+
+## Merging dataframes
+
+```{r data-manipulation-3.0}
+temp1a <- df_jresp2 |> 
+  mutate(FISH_ID.x = Male)
+temp1b <- df_jresp2 |> 
+  mutate(FISH_ID.y = Female)
+```
+
+```{r data-manipulation-3.1}
+temp2a <- temp1a |> 
+  left_join(select(df_adults_cleaned2, c("FISH_ID.x",
+                                          "Sex.x",
+                                          "Resting.x", 
+                                          "Max.x", 
+                                          "AAS.x", 
+                                          "Mass.x")), 
+                    by="FISH_ID.x")
+```
+
+```{r data-manipulation-3.2}
+temp2b <- temp1b |> 
+  left_join(select(df_adults_cleaned2, c("FISH_ID.y",
+                            "Sex.y",
+                            "Resting.y", 
+                            "Max.y", 
+                            "AAS.y", 
+                            "Mass.y")), 
+                   by="FISH_ID.y") 
+```
+
+```{r data-manipulation-3.3}
+df_merged <- temp2a |> 
+  left_join(select(temp2b, c("Clutch","Replicate", 
+                             "FISH_ID.y",
+                             "Resting.y", 
+                             "Max.y", 
+                             "AAS.y", 
+                             "Mass.y")), 
+            by=c("Clutch","Replicate"))
+```
+
+```{r data-manipulation-3.4}
+df <- df_merged |> 
+  mutate(Resting.x =Resting.x, 
+         Max.x =Max.x, 
+         AAS.x =AAS.x, 
+         Mass.x =Mass.x, 
+         FISH_ID.y =FISH_ID.x,#makes more sense for males to be .y instead of .x
+         FISH_ID.x =FISH_ID.x, 
+         Resting_FEMALE =Resting.y, 
+         Max_FEMALE =Max.y, 
+         AAS_FEMALE =AAS.y, 
+         Mass_FEMALE =Mass.y) |>  
+  mutate(AAS.x = AAS.x/Mass.x, 
+         AAS_FEMALE =AAS_FEMALE/Mass_FEMALE) |>
+  mutate(AAS_MID =(AAS.x+AAS_FEMALE)/2) |> # easier to do it again
+  filter(True_resting == "Y") |> # easier to do it again
+  mutate(AAS_MID =coalesce(AAS_MID, AAS.x)) |> 
+  mutate(AAS_MID =coalesce(AAS_MID, AAS_FEMALE)) |> 
+  unite("ChbSys", Chamber:System, remove=FALSE) |>
+  mutate(ChbSys =factor(ChbSys)) |> 
+  drop_na(AAS) |> 
+  filter(Resting < 0.6, 
+         Max < 1.5) |>
+  group_by(Clutch) |> 
+  mutate(MEDIAN_AAS =median(AAS_kg_wet)) |> 
+  ungroup()  
+  #select(-c(Replicate, Chamber, System, Volume, Date_tested, Swim, Mass, Dry_mass, 18:26)) |> 
+  #distinct() |> 
+  #drop_na(AAS_MID)
+```
+
+# Exploratory analysis 
+
+## Offspring-Male
+
+```{r eda-male, warning=FALSE, message=FALSE, fig.width=4, fig.height=3}
+plot1 <- ggplot(df, aes(x=AAS.x, y=AAS, color=Temperature)) + 
+  stat_smooth(method = "lm") +
+  #geom_point(alpha=0.1) + 
+  ggtitle("Offspring-male relationship") +
+  xlab("AAS (offspring)") + 
+  ylab("AAS (parental-male)") +
+  theme_classic() + 
+  theme(legend.position = 'right')
+plot1
+```
+
+# Models
+
+## Random factors
+```{r}
+modelNULL <- glmmTMB(AAS ~ 1, 
+                  family=gaussian(),
+                  data =df)
+
+model1 <- glmmTMB(AAS ~ (1|Male), 
+                  family=gaussian(),
+                  data = df)
+
+model2 <- glmmTMB(AAS ~ (1|Male) + (1|ChbSys), 
+                  family=gaussian(),
+                  data = df) 
+
+
+
+AIC(modelNULL, model1, model2, k=3) 
+BIC(modelNULL, model1, model2)
+```
+
+## Main hypothesis
+
+```{r}
+model1a <- glmmTMB(AAS ~ scale(as.numeric(AAS.x), center=TRUE)*Temperature + scale(Mass, center=TRUE) + (1| Male),    
+                   family=gaussian(),
+                   data=df)
+```
+
+# Model validation {.tabset}
+
+## DHARMa
+
+```{r}
+model1a |> 
+  simulateResiduals(plot=TRUE)  
+
+model1a |> testResiduals(plot=T)  
+```
+
+## performance 
+```{r}
+check_model(model1a, detrend =FALSE)
+``` 
+
+## {-} 
+
+# Partial effect plots
+
+```{r warning=FALSE, message=FALSE}
+model1a |> ggemmeans(~AAS.x|Temperature) |> 
+  plot(add.data =TRUE) 
+
+model1a |> ggemmeans(~Temperature) |> 
+  plot(add.data =TRUE)
+
+model1a |> ggemmeans(~Mass) |> 
+  plot(add.data =TRUE)
+```
+
+# Model investigation {.tabset}
+
+## Summary
+
+```{r}
+model1a |> summary()
+```
+
+## Anova
+
+```{r}
+model1a |> Anova()
+```
+
+## Confint
+
+```{r}
+model1a |> confint()
+```
+
+## r-squared
+
+```{r}
+model1a |> r2_nakagawa()
+```
+
+# Post-hoc 
+
+```{r}
+model1a |> emmeans(~Temperature) 
+model1a |> emmeans(~Temperature) |> pairs()|> summary(adjust="tukey")
+```
+
+# Summary figure
+
+```{r fig.height = 8, fig.width=12, warning=FALSE} 
+df <- df |> drop_na(AAS, AAS.x, Mass)
+m3.aas <- emmeans(model1a, ~ AAS.x*Temperature, 
+                 at =list(AAS.x=seq(from =min(df$AAS.x), to =max(df$AAS.x), by=.1)))
+
+m3.aas.df <- as.data.frame(m3.aas)
+
+m3.aas.obs <- df |> 
+  mutate(Pred =predict(model1a, re.form=NA, type ='response'), 
+         Resid =residuals(model1a, type ='response'), 
+         Fit =Pred+Resid) 
+
+m3.aas.obs.summarize <-  m3.aas.obs |> 
+  group_by(Male, Temperature) |> 
+  summarise(mean.aas =mean(Fit, na.rm=TRUE), 
+            mean.aas.male =mean(AAS.x, na.rm = TRUE), 
+            sd.aas =sd(Fit, na.rm =TRUE), 
+            n.aas = n()) |> 
+  mutate(se.aas = sd.aas / sqrt(n.aas), 
+         lower.ci.aas =mean.aas - qt(1-(0.05/2), n.aas -1) * se.aas, 
+         upper.ci.aas =mean.aas + qt(1-(0.05/2), n.aas -1) * se.aas) |> 
+  ungroup()
+
+m3.plot <- ggplot(data = m3.aas.df, aes(x=AAS.x, y=emmean)) + 
+  stat_smooth(aes(color=Temperature), 
+              method = "lm") + 
+  geom_ribbon(aes(ymin=lower.CL, ymax=upper.CL, fill=Temperature), alpha=0.5) +
+  geom_pointrange(data = m3.aas.obs.summarize, aes(x =mean.aas.male, 
+                                                  y =mean.aas, 
+                                                  ymin =lower.ci.aas, 
+                                                  ymax =upper.ci.aas, 
+                                                  color = Temperature)) +  
+  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
+  scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
+  facet_wrap(~Temperature)+
+  scale_y_continuous(limits = c(0,1), breaks = seq(0,1,by=0.1))+
+  xlab("PARENTAL AASS (mm)") + 
+  ylab("OFFSPRING AAS (mm)") + 
+  ggtitle("Offspring-male relationship") +
+  theme_classic()+theme(legend.position = 'none')
+
+m3.density <- ggdensity(m3.aas.obs, x="Fit", 
+          color = "Temperature", 
+          fill = "Temperature", 
+          rug=TRUE, 
+          add="median", 
+          alpha=0.5,
+          palette=c("#69d7d8","#ff9c56", "#903146")) + 
+  scale_x_continuous(limits = c(0,1), breaks = seq(0,1,by=0.1))+
+          clean_theme() + rotate() + 
+  theme(legend.position = c(0.7,0.9), 
+                                legend.box.background = element_rect(color = "black", size=2))
+
+m3.plot.final <-m3.plot + m3.density + 
+  plot_layout(guides = "collect" & theme(legend.position = "bottom"), 
+              widths = c(2,1)); m3.plot.final
+```
+
+# Slopes
+
+```{r}
+add.df <- split(m3.aas.obs.summarize, m3.aas.obs.summarize$Temperature) |> 
+  map(~lm(mean.aas ~ mean.aas.male, data=.)) |> 
+  map(summary) |> 
+  map_dbl("r.squared") |> 
+  as.data.frame()
+
+add.df <- add.df |>
+  mutate(Temperature = row.names(add.df)) |>
+  rename(r.sqaured =names(add.df)[1]) 
+
+sd_values <- df |> group_by(Temperature) |> 
+  summarise(sd =sd(Mass), 
+            se =sd(Mass)/sqrt(nrow(df)), 
+            Lower.CI =mean(Mass) - qt(1-(0.05/2), nrow(df) -1) *se, 
+            Upper.CI =mean(Mass) + qt(1-(0.05/2), nrow(df) -1) *se)  
+
+df.results.1 <- m3.aas.obs.summarize |> 
+  group_by(Temperature) |> 
+  do({ 
+    mod = lm(mean.aas ~ mean.aas.male, data = .) 
+    data.frame(group = "absolute aerobic scope", 
+               slope = coef(mod)[2], 
+               Heritability = coef(mod)[2]*2)
+    }) |> 
+  as.data.frame() |> 
+  mutate(Heritability = case_when(Heritability <=0 ~ 0, 
+                                  TRUE ~ Heritability)) |> 
+  inner_join(add.df, by="Temperature") |> 
+  inner_join(sd_values, by="Temperature"); df.results.1
+``` 
+
+# Within parental variation 
+
+```{r}
+cv_within <- m3.aas.obs |> 
+  group_by(Male) |> 
+  mutate(mean_value =mean(Fit), 
+         sd_value =sd(Fit), 
+         CV =(sd_value/mean_value) * 100) |>
+  ungroup() |> 
+  select(-c("Replicate","Mass","Dry_mass","ChbSys","Chamber","System","Pred","Fit","Resid")) |> 
+  distinct(Male, .keep_all=TRUE) 
+
+within_var <- aov(CV ~ Temperature, 
+                  data=cv_within) 
+summary(within_var) 
+```
+
+# Among parental variation
+```{r}
+cv_among <- cv_within |> 
+  group_by(Temperature) |> 
+  mutate(mean_among =mean(CV), 
+         sd_among =sd(CV), 
+         cv_among =(sd_among/mean_among)*100) |> 
+  ungroup() |> 
+  distinct(cv_among, .keep_all = T) |> 
+  select(c("Temperature","cv_among")) |> 
+  arrange(Temperature)
+cv_among
+```
