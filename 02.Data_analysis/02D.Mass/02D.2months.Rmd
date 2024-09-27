@@ -1,5 +1,5 @@
 ---
-title: "02B.Standard_length: Hatchlings"
+title: "02D.2month"
 author: "Elliott Schmidt"
 date: "`r Sys.Date()`"
 output: 
@@ -18,6 +18,8 @@ output:
     latex_engine: xelatex
 ---
 
+
+
 # Load libraries
 
 ```{r load-libraries, warning=FALSE, message=FALSE}
@@ -29,20 +31,20 @@ library(DHARMa) # model diagnostics
 library(performance) # model diagnostics  
 library(ggeffects) # partial effect plots 
 library(car) # running Anova on model 
-library(emmeans) # post-hoc analysis  
-library(MuMIn) 
-library(patchwork)
-``` 
+library(emmeans) # post-hoc analysis 
+library(patchwork) # joining plots
+```
 
-# Import data
-
-```{r message=FALSE, warning=FALSE}
-hatch <- read_csv("import_data/SL_hatchling.csv") |> 
-  mutate(across(1:14,factor)) |> 
-  mutate(STANDARD_LENGTH =SL, 
+```{r warning=FALSE}
+m2 <- read_csv("import_data/2_month_size_data_2022_2023.csv") |> 
+  mutate(across(1:15,factor)) |> 
+  mutate(STANDARD_LENGTH=LENGTH, 
          .keep = "unused") |> 
-  mutate(STANDARD_LENGTH =as.numeric(STANDARD_LENGTH)) |>
-  drop_na(STANDARD_LENGTH)
+  select(!(NOTES)) |> 
+  select(1:15,"STANDARD_LENGTH","MASS")|> 
+  group_by(CLUTCH_NUMBER) |> 
+  mutate(DENSITY = n()) |> 
+  ungroup()
 
 m2.5 <- read_csv("import_data/2-5_month_size_data_2022_2023.csv") |> 
   mutate(across(1:15,factor)) |> 
@@ -71,17 +73,15 @@ adult <- read_csv("import_data/adult_size_2022_2023.csv") |>
   distinct() |> 
   mutate(TEMPERATURE = coalesce(TEMPERATURE.x, TEMPERATURE.y)) |> 
   drop_na(TEMPERATURE) |> 
-  select(-c("TEMPERATURE.x","TEMPERATURE.y")) 
+  select(-c("TEMPERATURE.x","TEMPERATURE.y"))
 ```
 
-# Data manipulation
-
 ```{r}
-hatch_df_all <- hatch |> 
+m2_df_all <- m2 |> 
   left_join(select(adult, c("MALE", "SL", "MASS")), 
             by ="MALE") |> 
   mutate(SL_MALE =SL, 
-         MASS_MALE =MASS, 
+         MASS_MALE =MASS.y, 
          .keep = "unused") |>
   left_join(select(adult, c("FEMALE", "SL", "MASS")), 
             by ="FEMALE") |> 
@@ -89,88 +89,82 @@ hatch_df_all <- hatch |>
          MASS_FEMALE =MASS, 
          .keep ="unused") |> 
   mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
-         MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2) 
-
-hatch_df <- hatch_df_all |> 
-  group_by(CLUTCH_NUMBER) |> 
-  mutate(MEDIAN_STANDARD_LENGTH = median(STANDARD_LENGTH)) |> 
-  drop_na(MEDIAN_STANDARD_LENGTH) |>
-  ungroup() |> 
-  select(-c("STANDARD_LENGTH","SAMPLE","DATA_EGGS_FOUND")) |> 
-  distinct() |> 
-  mutate(MASS_MIDPOINT =coalesce(MASS_MIDPOINT, MASS_MALE), 
-         SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE))
+         MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2) |> 
+  rename(MASS = MASS.x) |> 
+  drop_na(MASS) 
 ```
 
 # Models
 
 ## Random factors
 ```{r}
-modelNULL <- glmmTMB(STANDARD_LENGTH ~ 1, 
+modelNULL <- glmmTMB(MASS ~ 1, 
                   family=gaussian(),
-                  data =hatch_df_all)
+                  data =m2_df_all)
 
-model1 <- glmmTMB(STANDARD_LENGTH ~ (1|MALE), 
+model1 <- glmmTMB(MASS ~ (1|MALE), 
                   family=gaussian(),
-                  data = hatch_df_all)
+                  data = m2_df_all)
 
-model2 <- glmmTMB(STANDARD_LENGTH ~ (1|MALE/CLUTCH_NUMBER) , 
-                  family=gaussian(),
-                  data = hatch_df_all) 
-
-AIC(modelNULL, model1, model2) 
-BIC(modelNULL, model1, model2)
+AIC(modelNULL, model1) 
+BIC(modelNULL, model1)
 ```
 
-## Main hypothesis
-
 ```{r}
-model1a <- glmmTMB(STANDARD_LENGTH ~ scale(SL_MALE, center=TRUE)*TEMPERATURE + (1| MALE),                     
+model1a <- glmmTMB(MASS ~ scale(MASS_MALE, center=TRUE)*TEMPERATURE + scale(DENSITY, center=TRUE) + (1| MALE),                     
                    family=gaussian(), 
-                   data=hatch_df_all)
+                   data=m2_df_all)
+
+model1c <- glmmTMB(MASS ~ scale(MASS_MALE, center=FALSE)*TEMPERATURE + scale(DENSITY, center=FALSE) + (1| MALE),                     
+                   family=Gamma(), 
+                   data=m2_df_all)
 ```
 
 ## Alternative hypothesis
 
 ```{r}
-model1b <- glmmTMB(STANDARD_LENGTH ~ scale(SL_MALE, center=TRUE)*TEMPERATURE + scale(as.numeric(DAYS_IN_TREATMENT), center=TRUE) +(1| MALE),
+model1b <- glmmTMB(MASS ~ scale(MASS_MALE, center=TRUE)*TEMPERATURE + scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT), center=TRUE) + scale(DENSITY, center=TRUE) + (1| MALE),
                    family=gaussian(), 
-                   data=hatch_df_all)
+                   data=m2_df_all)
 ```
+
 
 ## Model selection
 
 ```{r}
-AICc(model1a, model1b, k=4) 
+AIC(model1a, model1b,model1c, k=5) 
 ``` 
+
 
 # Model validation {.tabset}
 
 ## DHARMa
 
 ```{r}
-model1b |> 
+model1a |> 
   simulateResiduals(plot=TRUE)  
 
-model1b |> testResiduals(plot=T) 
+model1a |> testResiduals(plot=T) 
 ```
 
 ## performance 
 ```{r}
-check_model(model1b, detrend =FALSE)
+check_model(model1a) 
 ``` 
 
-## {-} 
+## {-}
 
 # Partial effect plots
 
 ```{r warning=FALSE, message=FALSE}
-model1b |> ggemmeans(~SL_MALE|TEMPERATURE) |> 
+model1a |> ggemmeans(~MASS_MALE|TEMPERATURE) |> 
   plot(add.data =TRUE) 
 
-model1b |> ggemmeans(~TEMPERATURE) |> 
+model1a |> ggemmeans(~TEMPERATURE) |> 
   plot(add.data =TRUE)  
- 
+
+model1a |> ggemmeans(~DENSITY) |> 
+  plot(add.data =TRUE)  
 ```
 
 # Model investigation {.tabset}
@@ -178,104 +172,94 @@ model1b |> ggemmeans(~TEMPERATURE) |>
 ## Summary
 
 ```{r}
-model1b |> summary()
+model1a |> summary()
 ```
 
 ## Anova
 
 ```{r}
-model1b |> Anova()
+model1a |> Anova()
 ```
 
 ## Confint
 
 ```{r}
-model1b |> confint()
+model1a |> confint()
 ```
 
 ## r-squared
 
 ```{r}
-model1b |> r2_nakagawa()
+model1a |> r2_nakagawa()
 ```
 
 ## {-} 
 
-# Post-hoc analysis 
-
-## emtrends 
-
-```{r}
-model1b |> emtrends(var = "SL_MALE", type="response") |> summary()
-model1b |> emtrends(var = "SL_MALE", type="response") |> pairs() |>  summary() 
-```
-
 # Summary figure
 
 ```{r fig.height = 8, fig.width=12}
-hatch.sl <- emmeans(model1a, ~ SL_MALE*TEMPERATURE, 
-                 at =list(SL_MALE=seq(from =min(hatch_df$SL_MALE), to =max(hatch_df$SL_MALE), by=.25)))
+m2.mass <- emmeans(model1a, ~ MASS_MALE*TEMPERATURE, type="response",
+                 at =list(MASS_MALE=seq(from =min(m2_df_all$MASS_MALE), to =max(m2_df_all$MASS_MALE), by=.1)))
 
-hatch.sl.df <- as.data.frame(hatch.sl)
+m2.mass.df <- as.data.frame(m2.mass)
 
-hatch.sl.obs <- drop_na(hatch_df_all, SL_MALE, STANDARD_LENGTH) |> 
+m2.mass.obs <- drop_na(m2_df_all, MASS_MALE, MASS) |> 
   mutate(Pred =predict(model1a, re.form=NA, type ='response'), 
          Resid =residuals(model1a, type ='response'), 
          Fit =Pred+Resid) 
 
-hatch.sl.obs.summarize <-  hatch.sl.obs |> 
+m2.mass.obs.summarize <-  m2.mass.obs |> 
   group_by(MALE, TEMPERATURE) |> 
-  summarise(mean.sl =mean(Fit, na.rm=TRUE), 
-            mean.sl.male =mean(SL_MALE, na.rm = TRUE), 
-            sd.sl =sd(Fit, na.rm =TRUE), 
-            n.sl = n()) |> 
-  mutate(se.sl = sd.sl / sqrt(n.sl), 
-         lower.ci.sl =mean.sl - qt(1-(0.05/2), n.sl -1) * se.sl, 
-         upper.ci.sl =mean.sl + qt(1-(0.05/2), n.sl -1) * se.sl) |> 
+  summarise(mean.mass =mean(Fit, na.rm=TRUE), 
+            mean.mass.male =mean(MASS_MALE, na.rm = TRUE), 
+            sd.mass =sd(Fit, na.rm =TRUE), 
+            n.mass = n()) |> 
+  mutate(se.mass = sd.mass / sqrt(n.mass), 
+         lower.ci.mass =mean.mass - qt(1-(0.05/2), n.mass -1) * se.mass, 
+         upper.ci.mass =mean.mass + qt(1-(0.05/2), n.mass -1) * se.mass) |> 
   ungroup()
 
-hatch.plot <- ggplot(data = hatch.sl.df, aes(x=SL_MALE, y=emmean)) + 
+m2.plot <- ggplot(data = m2.mass.df, aes(x=MASS_MALE, y=emmean)) + 
   stat_smooth(aes(color=TEMPERATURE), 
               method = "lm") + 
   geom_ribbon(aes(ymin=lower.CL, ymax=upper.CL, fill=TEMPERATURE), alpha=0.5) +
-  geom_pointrange(data = hatch.sl.obs.summarize, aes(x =mean.sl.male, 
-                                                  y =mean.sl, 
-                                                  ymin =lower.ci.sl, 
-                                                  ymax =upper.ci.sl, 
+  geom_pointrange(data = m2.mass.obs.summarize, aes(x =mean.mass.male, 
+                                                  y =mean.mass, 
+                                                  ymin =lower.ci.mass, 
+                                                  ymax =upper.ci.mass, 
                                                   color = TEMPERATURE)) +  
   scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
   scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
   facet_wrap(~TEMPERATURE)+
-  scale_y_continuous(limits = c(0.3,0.7), breaks = seq(0.3,0.7,by=0.1))+
-  xlab("PARENTAL MALE STANDARD LENGTH (mm)") + 
-  ylab("OFFSPRING STANDARD LENGTH (mm)") + 
-  ggtitle("Offspring-male relationship") +
+  scale_y_continuous(limits = c(0,0.5), breaks = seq(0,0.5,by=0.05))+
+  xlab("PARENTAL MASS (g)") + 
+  ylab("OFFSPRING MASS (g)") + 
+  ggtitle("Offspring-male relationship: 1-month offspring") +
   theme_classic()+theme(legend.position = 'none')
 
-hatch.density <- ggdensity(hatch.sl.obs, x="Fit", 
+m2.density <- ggdensity(m2.mass.obs, x="Fit", 
           color = "TEMPERATURE", 
           fill = "TEMPERATURE", 
           rug=TRUE, 
           add="median", 
           alpha=0.5,
           palette=c("#69d7d8","#ff9c56", "#903146")) + 
-  
-  scale_x_continuous(limits = c(0.3,0.7), breaks = seq(0.3,0.7,by=0.1))+
+  scale_x_continuous(limits = c(0,0.5), breaks = seq(0,0.5,by=0.05))+
           clean_theme() + rotate() + 
   theme(legend.position = c(0.7,0.9), 
                                 legend.box.background = element_rect(color = "black", size=2))
 
-hatch.plot.final <-hatch.plot + hatch.density + 
+m2.plot.final <-m2.plot + m2.density + 
   plot_layout(guides = "collect" & theme(legend.position = "bottom"), 
-              widths = c(2,1)); hatch.plot.final
+              widths = c(2,1)); m2.plot.final
 
-```
+``` 
 
-# slopes
+# Slopes
 
 ```{r}
-add.df <- split(hatch.sl.obs.summarize, hatch.sl.obs.summarize$TEMPERATURE) |> 
-  map(~lm(mean.sl ~ mean.sl.male, data=.)) |> 
+add.df <- split(m2.mass.obs.summarize, m2.mass.obs.summarize$TEMPERATURE) |> 
+  map(~lm(mean.mass ~ mean.mass.male, data=.)) |> 
   map(summary) |> 
   map_dbl("r.squared") |> 
   as.data.frame()
@@ -284,48 +268,47 @@ add.df <- add.df |>
   mutate(TEMPERATURE = row.names(add.df)) |>
   rename(r.sqaured =names(add.df)[1]) 
 
-df.results.1 <- hatch.sl.obs.summarize |> 
+sd_values <- m2_df_all |> group_by(TEMPERATURE) |> 
+  summarise(sd =sd(MASS), 
+            se =sd(MASS)/sqrt(nrow(m2_df_all)), 
+            Lower.CI =mean(MASS) - qt(1-(0.05/2), nrow(m2_df_all) -1) *se, 
+            Upper.CI =mean(MASS) + qt(1-(0.05/2), nrow(m2_df_all) -1) *se)  
+
+df.results.1 <- m2.mass.obs.summarize |> 
   group_by(TEMPERATURE) |> 
   do({ 
-    mod = lm(mean.sl ~ mean.sl.male, data = .) 
+    mod = lm(mean.mass ~ mean.mass.male, data = .) 
     data.frame(group = "1-months", 
-               Slope = coef(mod)[2], 
+               slope = coef(mod)[2], 
                Heritability = coef(mod)[2]*2)
     }) |> 
   as.data.frame() |> 
   mutate(Heritability = case_when(Heritability <=0 ~ 0, 
                                   TRUE ~ Heritability)) |> 
-  inner_join(add.df, by="TEMPERATURE"); df.results.1
+  inner_join(add.df, by="TEMPERATURE") |> 
+  inner_join(sd_values, by="TEMPERATURE"); df.results.1
 ``` 
 
 # Within parental variation 
 
 ```{r}
-cv_within <- hatch.sl.obs |> 
+cv_within <- m2.mass.obs |> 
   group_by(MALE) |> 
   mutate(mean_value =mean(Fit), 
          sd_value =sd(Fit), 
          CV =(sd_value/mean_value) * 100) |>
   ungroup() |> 
-  select(-c("DATA_EGGS_FOUND","SAMPLE","STANDARD_LENGTH","Pred","Fit","Resid")) |> 
+  select(-c("SAMPLE_NO","STANDARD_LENGTH","MASS","Pred","Fit","Resid")) |> 
   distinct(MALE, .keep_all=TRUE) 
 
 within_var <- aov(CV ~ TEMPERATURE, 
                   data=cv_within) 
 summary(within_var) 
-emmeans(within_var, pairwise ~TEMPERATURE) |> summary()
 ```
 
 # Among parental variation
 ```{r}
-cv_among <- hatch.sl.obs |> 
-  group_by(MALE) |> 
-  mutate(mean_value =mean(Fit), 
-         sd_value =sd(Fit), 
-         CV =(sd_value/mean_value) * 100) |>
-  ungroup() |> 
-  select(-c("DATA_EGGS_FOUND","SAMPLE","STANDARD_LENGTH","Pred","Fit","Resid")) |> 
-  distinct(MALE, .keep_all=TRUE) |> 
+cv_among <- cv_within |> 
   group_by(TEMPERATURE) |> 
   mutate(mean_among =mean(CV), 
          sd_among =sd(CV), 

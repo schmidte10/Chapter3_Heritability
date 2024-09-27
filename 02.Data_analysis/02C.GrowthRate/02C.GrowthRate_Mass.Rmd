@@ -1,0 +1,278 @@
+---
+title: "02C.GrowthRate_Mass"
+author: "Elliott Schmidt"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true  
+    toc_depth: 2
+    toc_float: true
+    code_folding: show
+    collapse: no
+    df_print: paged
+    fig_caption: yes
+    fig_height: 4
+    fig_width: 6
+    highlight: monochrome
+    theme: cerulean
+    latex_engine: xelatex
+---
+
+# Load libraries
+
+```{r load-libraries, warning=FALSE, message=FALSE}
+library(tidyverse) # data manipulation
+library(ggpubr) # producing data exploratory plots
+library(modelsummary) # descriptive data 
+library(glmmTMB) # running generalised mixed models 
+library(DHARMa) # model diagnostics 
+library(performance) # model diagnostics  
+library(ggeffects) # partial effect plots 
+library(car) # running Anova on model 
+library(emmeans) # post-hoc analysis  
+library(MuMIn) 
+library(patchwork) 
+library(ggridges)
+``` 
+
+# Import data
+
+```{r message=FALSE, warning=FALSE}
+hatch <- read_csv("import_data/hatchling_size_data_2022_2023.csv") |> 
+  mutate(across(1:21,factor)) |> 
+  drop_na(MASS)
+
+m1 <- read_csv("import_data/1_month_size_data_2022_2023.csv") |> 
+  mutate(across(1:15,factor)) |> 
+  mutate(STANDARD_LENGTH =LENGTH, 
+         .keep = "unused") |> 
+  select(!(NOTES)) |> 
+  select(1:15,"STANDARD_LENGTH","MASS") |> 
+  group_by(CLUTCH_NUMBER) |> 
+  mutate(DENSITY = n()) |> 
+  ungroup()
+           
+m2 <- read_csv("import_data/2_month_size_data_2022_2023.csv") |> 
+  mutate(across(1:15,factor)) |> 
+  mutate(STANDARD_LENGTH=LENGTH, 
+         .keep = "unused") |> 
+  select(!(NOTES)) |> 
+  select(1:15,"STANDARD_LENGTH","MASS")|> 
+  group_by(CLUTCH_NUMBER) |> 
+  mutate(DENSITY = n()) |> 
+  ungroup()
+
+m3 <- read_csv("import_data/2-5_month_size_data_2022_2023.csv") |> 
+  mutate(across(1:14,factor)) |> 
+  mutate(STANDARD_LENGTH =LENGTH, 
+         .keep = "unused") |> 
+  select(!(NOTES)) |> 
+  select(1:15,"STANDARD_LENGTH","MASS")|> 
+  group_by(CLUTCH_NUMBER) |> 
+  mutate(DENSITY = n()) |> 
+  ungroup()
+
+adult <- read_csv("import_data/adult_size_2022_2023.csv") |> 
+  mutate(across(1:3,factor), 
+         MALE = FISH_ID, 
+         FEMALE = FISH_ID, 
+         POPULATION = str_sub(FISH_ID, 2,4), 
+         POPULATION = case_when(POPULATION == "ARL" ~ "Arlington Reef", 
+                                POPULATION == "SUD" ~ "Sudbury Reef",
+                                POPULATION == "VLA" ~ "Vlassof cay",
+                                POPULATION == "PRE" ~ "Pretty patches", 
+                                TRUE ~ POPULATION)) |> 
+  left_join(select(m3, c("MALE","TEMPERATURE")), 
+             by="MALE") |> 
+  left_join(select(m3, c("FEMALE","TEMPERATURE")), 
+             by="FEMALE") |>
+  distinct() |> 
+  mutate(TEMPERATURE = coalesce(TEMPERATURE.x, TEMPERATURE.y)) |> 
+  drop_na(TEMPERATURE) |> 
+  select(-c("TEMPERATURE.x","TEMPERATURE.y"))
+```
+
+# Data manipulation
+
+```{r}
+hatch_df_all <- hatch |> 
+  left_join(select(adult, c("MALE", "SL", "MASS")), 
+            by ="MALE") |> 
+  mutate(SL_MALE =SL.y, 
+         MASS_MALE =MASS.y, 
+         .keep = "unused") |>
+  left_join(select(adult, c("FEMALE", "SL", "MASS")), 
+            by ="FEMALE") |> 
+  mutate(SL_FEMALE =SL, 
+         MASS_FEMALE =MASS, 
+         .keep ="unused") |> 
+  mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
+         MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2, 
+         PARENTAL_DAYS_IN_TREATMENT =DAYS_IN_TREATMENT, 
+         DENSITY =1, 
+         AGE_DAYS=0) |> 
+  rename(MASS =MASS.x) |> 
+  filter(MASS <0.05) |> 
+  select(c("CLUTCH_NUMBER","MALE","FEMALE","REGION","POPULATION","TEMPERATURE",
+           "TANK","CLUTCH_ORDER","PARENTAL_DAYS_IN_TREATMENT","DENSITY","AGE_DAYS","MASS", 
+           "SL_MALE","MASS_MALE")) |> 
+  mutate(AGE ="hatch")
+
+m1_df_all <- m1 |> 
+  left_join(select(adult, c("MALE", "SL", "MASS")), 
+            by ="MALE") |> 
+  mutate(SL_MALE =SL, 
+         MASS_MALE =MASS.y, 
+         .keep = "unused") |>
+  left_join(select(adult, c("FEMALE", "SL", "MASS")), 
+            by ="FEMALE") |> 
+  mutate(SL_FEMALE =SL, 
+         MASS_FEMALE =MASS, 
+         .keep ="unused") |> 
+  mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
+         MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2, 
+         AGE_DAYS=30) |> 
+  group_by(CLUTCH_NUMBER) |> 
+  mutate(MEDIAN_MASS = median(MASS.x)) |>
+  rename(MASS =MASS.x) |>
+  drop_na(MASS) |>
+  ungroup()  |> 
+  select(c("CLUTCH_NUMBER","MALE","FEMALE","REGION","POPULATION","TEMPERATURE",
+           "TANK","CLUTCH_ORDER","PARENTAL_DAYS_IN_TREATMENT","DENSITY","AGE_DAYS","MASS", 
+           "SL_MALE","MASS_MALE")) |> 
+  mutate(AGE ="1months")
+
+m2_df_all <- m2 |> 
+  left_join(select(adult, c("MALE", "SL", "MASS")), 
+            by ="MALE") |> 
+  mutate(SL_MALE =SL, 
+         MASS_MALE =MASS.y, 
+         .keep = "unused") |>
+  left_join(select(adult, c("FEMALE", "SL", "MASS")), 
+            by ="FEMALE") |> 
+  mutate(SL_FEMALE =SL, 
+         MASS_FEMALE =MASS, 
+         .keep ="unused") |> 
+  mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
+         MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2, 
+         AGE_DAYS=60) |> 
+  rename(MASS = MASS.x) |> 
+  drop_na(MASS)  |> 
+  select(c("CLUTCH_NUMBER","MALE","FEMALE","REGION","POPULATION","TEMPERATURE",
+           "TANK","CLUTCH_ORDER","PARENTAL_DAYS_IN_TREATMENT","DENSITY","AGE_DAYS","MASS", 
+           "SL_MALE","MASS_MALE")) |> 
+  mutate(AGE ="2months")
+
+m3_df_all <- m3 |> 
+  left_join(select(adult, c("MALE", "SL", "MASS")), 
+            by ="MALE") |> 
+  mutate(SL_MALE =SL, 
+         MASS_MALE =MASS.y, 
+         .keep = "unused") |>
+  left_join(select(adult, c("FEMALE", "SL", "MASS")), 
+            by ="FEMALE") |> 
+  mutate(SL_FEMALE =SL, 
+         MASS_FEMALE =MASS, 
+         .keep ="unused") |> 
+  mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
+         MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2) |> 
+  rename(MASS =MASS.x)  |> 
+  select(c("CLUTCH_NUMBER","MALE","FEMALE","REGION","POPULATION","TEMPERATURE",
+           "TANK","CLUTCH_ORDER","PARENTAL_DAYS_IN_TREATMENT","DENSITY","AGE_DAYS", "MASS", 
+           "SL_MALE","MASS_MALE")) |> 
+  mutate(AGE ="2.5months")
+
+growth_data <- rbind(hatch_df_all, m1_df_all, m2_df_all, m3_df_all) |> 
+  mutate(AGE =factor(AGE), 
+         AGE_DAYS =as.numeric(AGE_DAYS)) |> 
+  mutate(AGE =fct_relevel(AGE, c("hatch","1months","2months","2.5months")))
+``` 
+
+```{r}
+ggplot(growth_data, aes(x=AGE_DAYS, y=MASS, color=TEMPERATURE)) + 
+  geom_point() + 
+  stat_smooth(method="lm")
+```
+
+
+# Models
+
+## Random factors
+```{r}
+modelNULL <- glmmTMB(MASS ~ 1, 
+                  family=gaussian(),
+                  data =growth_data)
+
+model1 <- glmmTMB(MASS ~ (1|MALE), 
+                  family=gaussian(),
+                  data = growth_data)
+
+AIC(modelNULL, model1) 
+BIC(modelNULL, model1)
+```
+
+## Main hypothesis
+
+```{r}
+model1a <- glmmTMB(MASS ~ scale(as.numeric(AGE_DAYS))*TEMPERATURE + scale(DENSITY, center=TRUE) + scale(MASS_MALE, center=TRUE) + (1| MALE),
+                   family=gaussian(), 
+                   dispformula = ~AGE,
+                   data=growth_data)
+
+model1a.p2 <- glmmTMB(MASS ~ poly(as.numeric(AGE_DAYS),2, raw = TRUE)*TEMPERATURE + scale(DENSITY, center=TRUE) + scale(MASS_MALE, center=TRUE) + (1| MALE),                 
+                   family=gaussian(), 
+                   dispformula = ~AGE,
+                   data=growth_data)
+
+Anova(model1a.p2)
+```
+
+## Alternative hypothesis
+
+```{r}
+model1b.p2 <- glmmTMB(MASS ~ poly(as.numeric(AGE_DAYS),2, raw=TRUE)*TEMPERATURE + scale(DENSITY, center=TRUE) + scale(MASS_MALE, center=TRUE) + scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT), center=TRUE) + (1| MALE),                 
+                   family=gaussian(), 
+                   dispformula = ~AGE,
+                   data=growth_data)
+```
+
+## Model selection
+
+```{r}
+AIC(model1a, model1a.p2,model1b.p2, k=5)
+AIC(model1a, model1a.p2,model1b.p2,  k=6) 
+``` 
+
+# Model validation {.tabset}
+
+## DHARMa
+
+```{r}
+model1a.p2 |> 
+  simulateResiduals(plot=TRUE)  
+
+model1a.p2 |> testResiduals(plot=T)  
+```
+
+## performance 
+```{r}
+check_model(model1a.p2, detrend =FALSE)
+``` 
+
+## {-}  
+
+# Partial effect plots
+
+```{r warning=FALSE, message=FALSE}
+model1a.p2 |> ggemmeans(~AGE_DAYS|TEMPERATURE) |> 
+  plot(add.data =TRUE) 
+
+model1a.p2 |> ggemmeans(~TEMPERATURE) |> 
+  plot(add.data =TRUE)
+
+model1a.p2 |> ggemmeans(~DENSITY) |> 
+  plot(add.data =TRUE)
+
+model1a.p2 |> ggemmeans(~MASS_MALE) |> 
+  plot(add.data =TRUE)
+```
