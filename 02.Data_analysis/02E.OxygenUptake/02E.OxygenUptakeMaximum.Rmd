@@ -61,12 +61,13 @@ df_females <- df_adults_cleaned |>
   filter(Sex == "F")
 
 df_adults_cleaned2 <- df_males |> 
-  full_join(select(df_females, c("Tank","Temperature","Mass","Resting","Max","AAS","FISH_ID","Sex")), by="Tank") |> 
+  full_join(select(df_females, c("Tank","Temperature","Mass","Resting","Resting_kg","Max","Max_kg","AAS","AAS_kg","FISH_ID","Sex")), by="Tank") |> 
   mutate(Temperature.x = coalesce(Temperature.x, Temperature.y), 
          FISH_ID.x = coalesce(FISH_ID.x, FISH_ID.y),
          Sex.x = coalesce(Sex.x, Sex.y),
          Max.x =coalesce(Max.x, Max.y), 
-         Mass.x =coalesce(Mass.x,Mass.y)) |>  
+         Mass.x =coalesce(Mass.x,Mass.y), 
+         Max_kg.x =coalesce(Max_kg.x, Max_kg.y)) |>  
   drop_na(Max.x)
 ```
 
@@ -107,7 +108,10 @@ temp2a <- temp1a |>
                                           "Resting.x", 
                                           "Max.x", 
                                           "AAS.x", 
-                                          "Mass.x")), 
+                                          "Mass.x", 
+                                         "Resting_kg.x", 
+                                         "Max_kg.x", 
+                                         "AAS_kg.x")), 
                     by="FISH_ID.x")
 ```
 
@@ -118,7 +122,10 @@ temp2b <- temp1b |>
                             "Resting.y", 
                             "Max.y", 
                             "AAS.y", 
-                            "Mass.y")), 
+                            "Mass.y", 
+                                         "Resting_kg.y", 
+                                         "Max_kg.y", 
+                                         "AAS_kg.y")), 
                    by="FISH_ID.y") 
 ```
 
@@ -129,21 +136,24 @@ df_merged <- temp2a |>
                              "Resting.y", 
                              "Max.y", 
                              "AAS.y", 
-                             "Mass.y")), 
+                             "Mass.y", 
+                             "Resting_kg.y", 
+                                         "Max_kg.y", 
+                                         "AAS_kg.y")), 
             by=c("Clutch","Replicate"))
 ```
 
 ```{r data-manipulation-3.4}
 df <- df_merged |> 
-  mutate(Resting_MALE =Resting.x, 
-         Max_MALE =Max.x, 
-         AAS_MALE =AAS.x, 
+  mutate(Resting_MALE =Resting_kg.x, 
+         Max_MALE =Max_kg.x, 
+         AAS_MALE =AAS_kg.x, 
          Mass_MALE =Mass.x, 
          FISH_ID.y =FISH_ID.x,#makes more sense for males to be .y instead of .x
          FISH_ID.x =FISH_ID.x, 
-         Resting_FEMALE =Resting.y, 
-         Max_FEMALE =Max.y, 
-         AAS_FEMALE =AAS.y, 
+         Resting_FEMALE =Resting_kg.y, 
+         Max_FEMALE =Max_kg.y, 
+         AAS_FEMALE =AAS_kg.y, 
          Mass_FEMALE =Mass.y) |>  
   mutate(Max_MALE = Max_MALE/Mass_MALE, 
          Max_FEMALE =Max_FEMALE/Mass_FEMALE) |>
@@ -203,7 +213,7 @@ BIC(modelNULL, model1, model2)
 ## Main hypothesis
 
 ```{r}
-model1a <- glmmTMB(Max ~ scale(as.numeric(Max_MALE), center=TRUE)*Temperature + scale(Mass, center=TRUE) + (1| Male),    
+model1a <- glmmTMB(Max_kg_wet ~ scale(as.numeric(Max_MALE), center=TRUE)*Temperature + (1| Male),    
                    family=gaussian(),
                    data=df)
 ```
@@ -233,9 +243,6 @@ model1a |> ggemmeans(~Max_MALE|Temperature) |>
   plot(add.data =TRUE) 
 
 model1a |> ggemmeans(~Temperature) |> 
-  plot(add.data =TRUE)
-
-model1a |> ggemmeans(~Mass) |> 
   plot(add.data =TRUE)
 ```
 
@@ -275,9 +282,9 @@ model1a |> emmeans(~Temperature) |> pairs()|> summary(adjust="tukey")
 # Summary figure
 
 ```{r fig.height = 8, fig.width=12, warning=FALSE} 
-df <- df |> drop_na(Max, Max_MALE, Mass)
+df <- df |> drop_na(Max_kg_wet, Max_MALE)
 m3.max <- emmeans(model1a, ~ Max_MALE*Temperature, 
-                 at =list(Max_MALE=seq(from =min(df$Max_MALE), to =max(df$Max_MALE), by=.1)))
+                 at =list(Max_MALE=seq(from =min(df$Max_MALE), to =max(df$Max_MALE), by=50)))
 
 m3.max.df <- as.data.frame(m3.max)
 
@@ -309,7 +316,7 @@ m3.plot <- ggplot(data = m3.max.df, aes(x=Max_MALE, y=emmean)) +
   scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
   scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
   facet_wrap(~Temperature)+
-  scale_y_continuous(limits = c(0,1), breaks = seq(0,1,by=0.1))+
+  #scale_y_continuous(limits = c(0,1), breaks = seq(0,1,by=0.1))+
   xlab("PARENTAL MALE STANDARD LENGTH (mm)") + 
   ylab("OFFSPRING STANDARD LENGTH (mm)") + 
   ggtitle("Offspring-male relationship") +
@@ -322,7 +329,7 @@ m3.density <- ggdensity(m3.max.obs, x="Fit",
           add="median", 
           alpha=0.5,
           palette=c("#69d7d8","#ff9c56", "#903146")) + 
-  scale_x_continuous(limits = c(0,1), breaks = seq(0,1,by=0.1))+
+  #scale_x_continuous(limits = c(0,1), breaks = seq(0,1,by=0.1))+
           clean_theme() + rotate() + 
   theme(legend.position = c(0.7,0.9), 
                                 legend.box.background = element_rect(color = "black", size=2))

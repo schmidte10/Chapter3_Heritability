@@ -419,12 +419,12 @@ cv_within <- growth.obs |>
 cv_among <- cv_within |> 
   group_by(TEMPERATURE, AGE) |> 
   mutate(mean_among =mean(CV), 
-         sd_among =sd(CV), 
-         cv_among =(sd_among/mean_among)*100) |> 
+         sd_among =sd(CV)) |> 
+  mutate(cv_among =(sd_among/mean_among)*100) |> 
   ungroup() |> 
   distinct(cv_among, .keep_all = T) |> 
   arrange(TEMPERATURE) |> 
-  select(c("TEMPERATURE","AGE","CV"))
+  select(c("TEMPERATURE","AGE","cv_among","mean_among","sd_among"))
 cv_among
 ```
 
@@ -509,7 +509,7 @@ cv.plot <- ggplot(cv_within.summarize, aes(x=AGE, y=mean.cv, color = TEMPERATURE
                       ymax =upper.ci.cv, 
                       color = TEMPERATURE), 
                   size=1.25) +  
-  geom_point(data=cv_among, aes(x=AGE, y=CV, color="Among CV"),
+  geom_point(data=cv_among, aes(x=AGE, y=cv_among, color="Among CV"),
              shape =15, 
              size =4, 
              show.legend = TRUE) +

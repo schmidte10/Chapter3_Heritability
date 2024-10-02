@@ -224,40 +224,39 @@ model1a.p2 <- glmmTMB(MASS ~ poly(as.numeric(AGE_DAYS),2, raw = TRUE)*TEMPERATUR
                    family=gaussian(), 
                    dispformula = ~AGE,
                    data=growth_data)
-
-Anova(model1a.p2)
 ```
 
 ## Alternative hypothesis
 
 ```{r}
-model1b.p2 <- glmmTMB(MASS ~ poly(as.numeric(AGE_DAYS),2, raw=TRUE)*TEMPERATURE + scale(DENSITY, center=TRUE) + scale(MASS_MALE, center=TRUE) + scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT), center=TRUE) + (1| MALE),                 
+model1b.p2 <- glmmTMB(MASS ~ poly(as.numeric(AGE_DAYS),2, raw=TRUE)*TEMPERATURE + scale(DENSITY, center=TRUE) + scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT), center=TRUE) + (1| MALE),                 
                    family=gaussian(), 
                    dispformula = ~AGE,
                    data=growth_data)
 ```
-
 ## Model selection
 
 ```{r}
-AIC(model1a, model1a.p2,model1b.p2, k=5)
 AIC(model1a, model1a.p2,model1b.p2,  k=6) 
+BIC(model1a, model1a.p2,model1b.p2) 
 ``` 
+
+model1b.p2 has the lowest AIC but the model does not reach convergence, there moving forward model1a.p2 was used. 
 
 # Model validation {.tabset}
 
 ## DHARMa
 
 ```{r}
-model1a.p2 |> 
+model1b.p2 |> 
   simulateResiduals(plot=TRUE)  
 
-model1a.p2 |> testResiduals(plot=T)  
+model1b.p2 |> testResiduals(plot=T)  
 ```
 
 ## performance 
 ```{r}
-check_model(model1a.p2, detrend =FALSE)
+check_model(model1b.p2, detrend =FALSE)
 ``` 
 
 ## {-}  
@@ -265,56 +264,56 @@ check_model(model1a.p2, detrend =FALSE)
 # Partial effect plots
 
 ```{r warning=FALSE, message=FALSE}
-model1a.p2 |> ggemmeans(~AGE_DAYS|TEMPERATURE) |> 
+model1b.p2 |> ggemmeans(~AGE_DAYS|TEMPERATURE) |> 
   plot(add.data =TRUE) 
 
-model1a.p2 |> ggemmeans(~TEMPERATURE) |> 
+model1b.p2 |> ggemmeans(~TEMPERATURE) |> 
   plot(add.data =TRUE)
 
-model1a.p2 |> ggemmeans(~DENSITY) |> 
+model1b.p2 |> ggemmeans(~DENSITY) |> 
   plot(add.data =TRUE)
 
-model1a.p2 |> ggemmeans(~MASS_MALE) |> 
+model1b.p2 |> ggemmeans(~PARENTAL_DAYS_IN_TREATMENT) |> 
   plot(add.data =TRUE)
 ``` 
 
-Model investigation {.tabset}
+# Model investigation {.tabset}
 
 ## Summary
 
 ```{r}
-model1a.p2 |> summary()
+model1b.p2 |> summary()
 ```
 
 ## Anova
 
 ```{r}
-model1a.p2 |> Anova()
+model1b.p2 |> Anova()
 ```
 
 ## Confint
 
 ```{r}
-model1a.p2 |> confint()
+model1b.p2 |> confint()
 ```
 
 # Post-hoc analysis 
 
 ```{r}
-model1a.p2 |> emtrends(var ="AGE_DAYS", type="response") |> pairs()|> summary(adjust="tukey")
+model1b.p2 |> emtrends(var ="AGE_DAYS", type="response") |> pairs()|> summary(adjust="tukey")
 ```
 
 # Summary figure 
 
 ```{r}
-growth <- emmeans(model1a.p2, ~ AGE_DAYS*TEMPERATURE, 
+growth <- emmeans(model1b.p2, ~ AGE_DAYS*TEMPERATURE, 
                  at =list(AGE_DAYS=seq(from =min(growth_data$AGE_DAYS), to =max(growth_data$AGE_DAYS), by=.5)))
 
 growth.df <- as.data.frame(growth)
 
-growth.obs <- drop_na(growth_data, AGE_DAYS, MASS, MASS_MALE, TEMPERATURE) |> 
-  mutate(Pred =predict(model1a.p2, re.form=NA, type ='response'), 
-         Resid =residuals(model1a.p2, type ='response'), 
+growth.obs <- drop_na(growth_data, AGE_DAYS, MASS, TEMPERATURE) |> 
+  mutate(Pred =predict(model1b.p2, re.form=NA, type ='response'), 
+         Resid =residuals(model1b.p2, type ='response'), 
          Fit =Pred+Resid) 
 
 growth.obs.summarize <-  growth.obs |> 
@@ -414,7 +413,7 @@ cv_among <- cv_within |>
   ungroup() |> 
   distinct(cv_among, .keep_all = T) |> 
   arrange(TEMPERATURE) |> 
-  select(c("TEMPERATURE","AGE","CV"))
+  select(c("TEMPERATURE","AGE","mean_among","sd_among","cv_among"))
 cv_among
 ```
 
@@ -499,7 +498,7 @@ cv.plot <- ggplot(cv_within.summarize, aes(x=AGE, y=mean.cv, color = TEMPERATURE
                       ymax =upper.ci.cv, 
                       color = TEMPERATURE), 
                   size=1.25) +  
-  geom_point(data=cv_among, aes(x=AGE, y=CV, color="Among CV"),
+  geom_point(data=cv_among, aes(x=AGE, y=cv_among, color="Among CV"),
              shape =15, 
              size =4, 
              show.legend = TRUE) +
