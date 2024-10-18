@@ -87,7 +87,8 @@ hatch_df_all <- hatch |>
   mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
          MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2) |> 
   rename(MASS =MASS.x) |> 
-  filter(MASS <0.05)
+  filter(MASS <0.05)|> 
+  drop_na(MASS_MALE)
 
 hatch_df <- hatch_df_all |>
   group_by(CLUTCH_NUMBER) |> 
@@ -228,7 +229,7 @@ hatch.mass <- emmeans(model1c, ~ MASS_MALE*TEMPERATURE, type="response",
 
 hatch.mass.df <- as.data.frame(hatch.mass)
 
-hatch.mass.obs <- drop_na(hatch_df_all, MASS_MALE, MASS) |> 
+hatch.mass.obs <- drop_na(hatch_df_all, MASS_MALE) |> 
   mutate(Pred =predict(model1c, re.form=NA, type ='response'), 
          Resid =residuals(model1c, type ='response'), 
          Fit =Pred+Resid) 
@@ -244,10 +245,21 @@ hatch.mass.obs.summarize <-  hatch.mass.obs |>
          upper.ci.mass =mean.mass + qt(1-(0.05/2), n.mass -1) * se.mass) |> 
   ungroup()
 
+mod = lm(mean.mass ~ mean.mass.male*TEMPERATURE,  
+         data =hatch.mass.obs.summarize)
+
+mod.mass <- emmeans(mod, ~ mean.mass.male*TEMPERATURE, 
+                 at =list(mean.mass.male=seq(from =min(hatch.mass.obs.summarize$mean.mass.male), to =max(hatch.mass.obs.summarize$mean.mass.male), by=.25))) |> as.data.frame()
+
+
 hatch.plot <- ggplot(data = hatch.mass.df, aes(x=MASS_MALE, y=response)) + 
-  stat_smooth(aes(color=TEMPERATURE), 
-              method = "lm") + 
-  geom_ribbon(aes(ymin=lower.CL, ymax=upper.CL, fill=TEMPERATURE), alpha=0.5) +
+  stat_smooth(data=hatch.mass.obs.summarize, aes(x =mean.mass.male, 
+                                                  y =mean.mass, color=TEMPERATURE), 
+              method = "lm", 
+              se=FALSE) + 
+  geom_ribbon(data=mod.mass, aes(x =mean.mass.male, 
+                                                  y =emmean, 
+                               ymin=lower.CL, ymax=upper.CL, fill=TEMPERATURE), alpha=0.5) +
   geom_pointrange(data = hatch.mass.obs.summarize, aes(x =mean.mass.male, 
                                                   y =mean.mass, 
                                                   ymin =lower.ci.mass, 
@@ -304,7 +316,7 @@ df.results.1 <- hatch.mass.obs.summarize |>
   group_by(TEMPERATURE) |> 
   do({ 
     mod = lm(mean.mass ~ mean.mass.male, data = .) 
-    data.frame(group = "1-months", 
+    data.frame(group = "hatching", 
                slope = coef(mod)[2], 
                Heritability = coef(mod)[2]*2)
     }) |> 

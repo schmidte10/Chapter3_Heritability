@@ -390,7 +390,8 @@ cv_within <- m3.aas.obs |>
 
 within_var <- aov(CV ~ Temperature, 
                   data=cv_within) 
-summary(within_var) 
+summary(within_var)  
+emmeans(within_var, ~Temperature)
 ```
 
 # Among parental variation

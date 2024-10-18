@@ -235,13 +235,18 @@ model1b.p2 <- glmmTMB(STANDARD_LENGTH ~ poly(as.numeric(AGE_DAYS),2, raw=TRUE)*T
                    family=gaussian(), 
                    dispformula = ~AGE,
                    data=growth_data)
+
+model1c.p2 <- glmmTMB(STANDARD_LENGTH ~ poly(as.numeric(AGE_DAYS),2, raw=TRUE)*TEMPERATURE + scale(DENSITY, center=TRUE)  + scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT), center=TRUE) + (1| MALE),                 
+                   family=gaussian(), 
+                   dispformula = ~AGE,
+                   data=growth_data)
 ```
 
 ## Model selection
 
 ```{r}
-AIC(model1a, model1a.p2, k=5)
-AIC(model1a.p2, model1b.p2,  k=6) 
+AIC(model1a, model1a.p2,model1c.p2, k=6)
+AIC(model1a.p2, model1b.p2,model1c.p2,  k=6) 
 ``` 
 
 # Model validation {.tabset}
@@ -281,7 +286,7 @@ model1b.p2 |> ggemmeans(~PARENTAL_DAYS_IN_TREATMENT) |>
   plot(add.data =TRUE)
 ```
 
-Model investigation {.tabset}
+# Model investigation {.tabset}
 
 ## Summary
 
@@ -310,6 +315,7 @@ NULL. Can't find r-squared command that can calculate r-squared for model with d
 # Post-hoc analysis 
 
 ```{r}
+model1b.p2 |> emtrends(var ="AGE_DAYS", type="response") |> summary()
 model1b.p2 |> emtrends(var ="AGE_DAYS", type="response") |> pairs()|> summary(adjust="tukey")
 ```
 

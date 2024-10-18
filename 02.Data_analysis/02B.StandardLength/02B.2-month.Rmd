@@ -222,8 +222,8 @@ m2.sl <- emmeans(model1b, ~ SL_MALE*TEMPERATURE,
 m2.sl.df <- as.data.frame(m2.sl)
 
 m2.sl.obs <- drop_na(m2_df_all, SL_MALE, STANDARD_LENGTH) |> 
-  mutate(Pred =predict(model1a, re.form=NA, type ='response'), 
-         Resid =residuals(model1a, type ='response'), 
+  mutate(Pred =predict(model1b, re.form=NA, type ='response'), 
+         Resid =residuals(model1b, type ='response'), 
          Fit =Pred+Resid) 
 
 m2.sl.obs.summarize <-  m2.sl.obs |> 
@@ -335,7 +335,19 @@ cv_among <- m2.sl.obs |>
          cv_among =(sd_among/mean_among)*100) |> 
   ungroup() |> 
   distinct(cv_among, .keep_all = T) |> 
-  select(c("TEMPERATURE","cv_among")) |> 
+  select(c("TEMPERATURE","cv_among","sd_among","mean_among")) |> 
   arrange(TEMPERATURE)
 cv_among
+```
+
+# CV between environments 
+
+```{r}
+cv27 <- cv_among[1,2]
+cv28 <- cv_among[2,2]
+cv30 <- cv_among[3,2]
+cv_among <-  cv_among |> 
+  mutate(cv_comp =c(log(cv27/cv30) + (1/(2*(11-1))) - (1/(2*(11-1))),
+         log(cv28/cv30) + (1/(2*(10-1))) - (1/(2*(11-1))), 
+log(cv27/cv28) + (1/(2*(11-1))) - (1/(2*(10-1)))));cv_among
 ```

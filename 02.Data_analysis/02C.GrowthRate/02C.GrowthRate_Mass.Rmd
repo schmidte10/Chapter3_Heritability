@@ -300,6 +300,7 @@ model1b.p2 |> confint()
 # Post-hoc analysis 
 
 ```{r}
+model1b.p2 |> emtrends(var ="AGE_DAYS", type="response") |> summary()
 model1b.p2 |> emtrends(var ="AGE_DAYS", type="response") |> pairs()|> summary(adjust="tukey")
 ```
 

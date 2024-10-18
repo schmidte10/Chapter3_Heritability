@@ -155,8 +155,6 @@ df <- df_merged |>
          Max_FEMALE =Max_kg.y, 
          AAS_FEMALE =AAS_kg.y, 
          Mass_FEMALE =Mass.y) |>  
-  mutate(Max_MALE = Max_MALE/Mass_MALE, 
-         Max_FEMALE =Max_FEMALE/Mass_FEMALE) |>
   mutate(Max_MID =(Max_MALE+Max_FEMALE)/2) |> # easier to do it again
   mutate(Max_MID =coalesce(Max_MID, Max_MALE)) |> 
   mutate(Max_MID =coalesce(Max_MID, Max_FEMALE)) |> 
@@ -215,6 +213,7 @@ BIC(modelNULL, model1, model2)
 ```{r}
 model1a <- glmmTMB(Max_kg_wet ~ scale(as.numeric(Max_MALE), center=TRUE)*Temperature + (1| Male),    
                    family=gaussian(),
+                   control = glmmTMBControl(optimizer = optim, optArgs = list(method="BFGS")),
                    data=df)
 ```
 
@@ -231,7 +230,7 @@ model1a |> testResiduals(plot=T)
 
 ## performance 
 ```{r}
-check_model(model1a, detrend =FALSE)
+#performance::check_model(model1a, detrend =FALSE)
 ``` 
 
 ## {-}  
@@ -243,6 +242,9 @@ model1a |> ggemmeans(~Max_MALE|Temperature) |>
   plot(add.data =TRUE) 
 
 model1a |> ggemmeans(~Temperature) |> 
+  plot(add.data =TRUE) 
+
+model1a |> ggemmeans(~Max_MALE) |> 
   plot(add.data =TRUE)
 ```
 
@@ -284,7 +286,7 @@ model1a |> emmeans(~Temperature) |> pairs()|> summary(adjust="tukey")
 ```{r fig.height = 8, fig.width=12, warning=FALSE} 
 df <- df |> drop_na(Max_kg_wet, Max_MALE)
 m3.max <- emmeans(model1a, ~ Max_MALE*Temperature, 
-                 at =list(Max_MALE=seq(from =min(df$Max_MALE), to =max(df$Max_MALE), by=50)))
+                 at =list(Max_MALE=seq(from =min(df$Max_MALE), to =max(df$Max_MALE)+50, by=5)))
 
 m3.max.df <- as.data.frame(m3.max)
 
@@ -304,10 +306,25 @@ m3.max.obs.summarize <-  m3.max.obs |>
          upper.ci.max =mean.max + qt(1-(0.05/2), n.max -1) * se.max) |> 
   ungroup()
 
+mod = lm(mean.max ~ mean.max.male*Temperature, 
+         data =m3.max.obs.summarize)
+mod.max <- emmeans(mod, ~ mean.max.male*Temperature, 
+                 at =list(mean.max.male=seq(from =min(m3.max.obs.summarize$mean.max.male), to =max(m3.max.obs.summarize$mean.max.male), by=5))) |> as.data.frame()
+
 m3.plot <- ggplot(data = m3.max.df, aes(x=Max_MALE, y=emmean)) + 
-  stat_smooth(aes(color=Temperature), 
-              method = "lm") + 
-  geom_ribbon(aes(ymin=lower.CL, ymax=upper.CL, fill=Temperature), alpha=0.5) +
+  stat_smooth(data=m3.max.obs.summarize, 
+              aes(x =mean.max.male,
+                  y =mean.max, 
+                  color=Temperature), 
+              method = "lm", 
+              se=FALSE) + 
+  geom_ribbon(data=mod.max, 
+              aes(x =mean.max.male,
+                  y =emmean,
+                  ymin=lower.CL,
+                  ymax=upper.CL, 
+                  fill=Temperature), 
+              alpha=0.5) +
   geom_pointrange(data = m3.max.obs.summarize, aes(x =mean.max.male, 
                                                   y =mean.max, 
                                                   ymin =lower.ci.max, 
@@ -316,7 +333,7 @@ m3.plot <- ggplot(data = m3.max.df, aes(x=Max_MALE, y=emmean)) +
   scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
   scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
   facet_wrap(~Temperature)+
-  #scale_y_continuous(limits = c(0,1), breaks = seq(0,1,by=0.1))+
+  scale_y_continuous(limits = c(500,2000), breaks = seq(500,2000,by=100))+
   xlab("PARENTAL MALE STANDARD LENGTH (mm)") + 
   ylab("OFFSPRING STANDARD LENGTH (mm)") + 
   ggtitle("Offspring-male relationship") +
@@ -329,7 +346,7 @@ m3.density <- ggdensity(m3.max.obs, x="Fit",
           add="median", 
           alpha=0.5,
           palette=c("#69d7d8","#ff9c56", "#903146")) + 
-  #scale_x_continuous(limits = c(0,1), breaks = seq(0,1,by=0.1))+
+  scale_x_continuous(limits = c(500,2000), breaks = seq(500,2000,by=100))+
           clean_theme() + rotate() + 
   theme(legend.position = c(0.7,0.9), 
                                 legend.box.background = element_rect(color = "black", size=2))

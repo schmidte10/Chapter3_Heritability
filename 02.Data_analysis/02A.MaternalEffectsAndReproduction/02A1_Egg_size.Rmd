@@ -268,7 +268,15 @@ model1b |> ggemmeans(~MASS_FEMALE|TEMPERATURE) |>
   plot(add.data =TRUE)
 ```
 
-# Model investigation {.tabset}
+# Post-hoc analysis 
+
+```{r}
+model1b |> emmeans(~TEMPERATURE, type ="response")
+model1b |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary() 
+```
+
+
+# Model investigation {.tabset} 
 
 ## Summary
 

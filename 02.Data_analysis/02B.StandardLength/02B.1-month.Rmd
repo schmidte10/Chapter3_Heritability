@@ -134,8 +134,7 @@ model1a <- glmmTMB(STANDARD_LENGTH ~ scale(SL_MALE)*TEMPERATURE + scale(DENSITY)
 ## Alternative hypothesis
 
 ```{r}
-model1b <- glmmTMB(STANDARD_LENGTH ~ scale(SL_MALE)*TEMPERATURE + scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT)) + 
-                     scale(DENSITY) +(1| MALE),
+model1b <- glmmTMB(STANDARD_LENGTH ~ scale(SL_MALE, center = TRUE)*TEMPERATURE + scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT), center = TRUE) + scale(DENSITY, center = TRUE) +(1| MALE),
                    family=gaussian(), 
                    data=m1_df_all)
 ```
@@ -208,6 +207,15 @@ model1b |> r2_nakagawa()
 
 ## {-}
 
+# Post-hoc 
+
+```{r}
+
+model1b |> emmeans(pairwise ~ TEMPERATURE, type="response") 
+
+```
+
+
 # Summary figure
 
 ```{r fig.height = 8, fig.width=12}
@@ -217,8 +225,8 @@ m1.sl <- emmeans(model1b, ~ SL_MALE*TEMPERATURE,
 m1.sl.df <- as.data.frame(m1.sl)
 
 m1.sl.obs <- drop_na(m1_df_all, SL_MALE, STANDARD_LENGTH) |> 
-  mutate(Pred =predict(model1a, re.form=NA, type ='response'), 
-         Resid =residuals(model1a, type ='response'), 
+  mutate(Pred =predict(model1b, re.form=NA, type ='response'), 
+         Resid =residuals(model1b, type ='response'), 
          Fit =Pred+Resid) 
 
 m1.sl.obs.summarize <-  m1.sl.obs |> 
@@ -299,6 +307,19 @@ df.results.1 <- m1.sl.obs.summarize |>
 # Within parental variation 
 
 ```{r}
+test <- m1.sl.obs |> 
+  mutate(residuals =residuals(model1b)) |> 
+  group_by(MALE) |> 
+  mutate(sdr =sd(residuals), 
+         Fitmean=mean(Fit)) |> 
+  ungroup() |> 
+  distinct(sdr, .keep_all = TRUE) |> 
+  filter(Fitmean <26)
+
+ggplot(test, aes(x=Fitmean, y=sdr)) + 
+  geom_point() + 
+  geom_smooth(method="lm") 
+
 cv_within <- m1.sl.obs |> 
   group_by(MALE) |> 
   mutate(mean_value =mean(Fit), 
@@ -330,7 +351,21 @@ cv_among <- m1.sl.obs |>
          cv_among =(sd_among/mean_among)*100) |> 
   ungroup() |> 
   distinct(cv_among, .keep_all = T) |> 
-  select(c("TEMPERATURE","cv_among")) |> 
+  select(c("TEMPERATURE","cv_among","sd_among","mean_among")) |> 
   arrange(TEMPERATURE)
 cv_among
+```
+
+
+
+# CV between environments 
+
+```{r}
+cv27 <- cv_among[1,2]
+cv28 <- cv_among[2,2]
+cv30 <- cv_among[3,2]
+cv_among <-  cv_among |> 
+  mutate(cv_comp =c(log(cv27/cv30) + (1/(2*(11-1))) - (1/(2*(11-1))),
+         log(cv28/cv30) + (1/(2*(10-1))) - (1/(2*(11-1))), 
+log(cv27/cv28) + (1/(2*(11-1))) - (1/(2*(10-1)))));cv_among
 ```

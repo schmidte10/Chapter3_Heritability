@@ -250,7 +250,7 @@ model1b <- glmmTMB(YOLK_SAC ~ scale(MASS_FEMALE, center=TRUE)*TEMPERATURE + scal
 ## Model selection
 
 ```{r}
-AICc(model1a, model1b, k=5) 
+AIC(model1a, model1b, k=5) 
 ``` 
 
 # Model validation {.tabset}
@@ -438,7 +438,28 @@ cv_among <- yolk.obs |>
          cv_among =(sd_among/mean_among)*100) |> 
   ungroup() |> 
   distinct(cv_among, .keep_all = T) |> 
-  select(c("TEMPERATURE","cv_among")) |> 
-  arrange(as.numeric(TEMPERATURE))
-cv_among
+  select(c("TEMPERATURE","cv_among","sd_among")) |> 
+  arrange(as.numeric(TEMPERATURE)); cv_among
+
+
 ```
+
+
+```{r}
+cv_among_27 <- cv_among |> filter(TEMPERATURE == "27")
+cv_among_28 <- cv_among |> filter(TEMPERATURE == "28.5")
+cv_among_27 <- cv_among |> filter(TEMPERATURE == "27")
+
+t.test(cv_among_27$cv_among, cv_among_28$cv_among, alternative="two.sided")
+t.test(cv_within_27$CV, mu=31.17, alternative="two.sided")
+
+
+t.test(cv_within_27$CV, mu=26.14, alternative="two.sided") 
+
+mod <- lm(CV ~ TEMPERATURE, 
+          data=cv_within) 
+summary(mod) 
+
+
+```
+

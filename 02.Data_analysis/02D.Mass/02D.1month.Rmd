@@ -202,6 +202,10 @@ model1a.gamma |> r2_nakagawa()
 
 ## {-} 
 
+```{r}
+model1a.gamma |> emmeans(pairwise ~ TEMPERATURE, type="response") 
+```
+
 # Summary figure
 
 ```{r fig.height = 8, fig.width=12}
