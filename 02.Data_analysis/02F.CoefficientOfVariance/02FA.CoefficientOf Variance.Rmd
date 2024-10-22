@@ -1,0 +1,56 @@
+---
+title: "02FA.CoefficientOfVariance"
+author: "Elliott Schmidt"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true  
+    toc_depth: 2
+    toc_float: true
+    code_folding: show
+    collapse: no
+    df_print: paged
+    fig_caption: yes
+    fig_height: 4
+    fig_width: 6
+    highlight: monochrome
+    theme: cerulean
+    latex_engine: xelatex
+---
+
+# Load libraries
+
+```{r load-libraries, warning=FALSE, message=FALSE}
+library(tidyverse) # data manipulation
+library(ggpubr) # producing data exploratory plots
+library(modelsummary) # descriptive data 
+library(glmmTMB) # running generalised mixed models 
+library(DHARMa) # model diagnostics 
+library(performance) # model diagnostics  
+library(ggeffects) # partial effect plots 
+library(car) # running Anova on model 
+library(emmeans) # post-hoc analysis  
+library(MuMIn) # model comparisons
+library(lme4)  #blups
+library(patchwork) #aligning plots
+``` 
+
+# Import data 
+
+```{r}
+df_cv <- read_csv("import_data/CV.csv", col_types = cols(CV = col_number())) |> 
+  mutate(across(c("COMPARISON":"TRAIT4"), as.factor))
+```
+
+# plot data 
+
+```{r}
+ggplot(df_cv, 
+       aes(x=COMPARISON, y=CV, color=TRAIT4)) + 
+  geom_point(size=2) + 
+  facet_wrap(~TRAIT2) + 
+  geom_hline(yintercept=0) + 
+  scale_color_manual(values = c("steelblue2","springgreen2", "steelblue3","springgreen3","steelblue4", "springgreen4","magenta1","steelblue1","springgreen1", "magenta4")) + 
+  ylim(-1,1) 
+```
+

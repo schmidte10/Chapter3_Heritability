@@ -1,5 +1,5 @@
 ---
-title: '02A. Maternal Effects and Reproduction: Hatching success'
+title: "02A. Maternal Effects and Reproduction: Days-to-Hatch"
 author: "Elliott Schmidt"
 date: "`r Sys.Date()`"
 output: 
@@ -40,11 +40,10 @@ library(patchwork) #aligning plots
 ```{r message=FALSE, warning=FALSE}
 egg <- read_csv("import_data/egg_size_data_2022_2023.csv") |> 
   mutate(across(1:14,factor))  |> 
-  select(!c(NOTES,...18, IMAGE))   
+  select(!c(NOTES,...18, IMAGE)) 
 
 reprod.data <- read_csv("import_data/clutch_data_2022_2023.csv") |> 
   mutate(across(c(1:7,16,23), factor))  
-  
 
 m2.5 <- read_csv("import_data/2-5_month_size_data_2022_2023.csv") |> 
   mutate(across(1:15,factor)) |> 
@@ -73,7 +72,7 @@ adult <- read_csv("import_data/adult_size_2022_2023.csv") |>
   distinct() |> 
   mutate(TEMPERATURE = coalesce(TEMPERATURE.x, TEMPERATURE.y)) |> 
   drop_na(TEMPERATURE) |> 
-  select(-c("TEMPERATURE.x","TEMPERATURE.y")) 
+  select(-c("TEMPERATURE.x","TEMPERATURE.y"))
 ```
 
 # Data manipulation
@@ -89,9 +88,7 @@ m2.5_df_all <- m2.5 |>
             by ="FEMALE") |> 
   mutate(SL_FEMALE =SL, 
          MASS_FEMALE =MASS, 
-         .keep ="unused") |> 
-  mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
-         MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2) 
+         .keep ="unused") 
 
 m2.5_df <- m2.5_df_all |>
   group_by(CLUTCH_NUMBER) |> 
@@ -99,9 +96,7 @@ m2.5_df <- m2.5_df_all |>
   drop_na(MEDIAN_STANDARD_LENGTH) |>
   ungroup() |> 
   select(-c("STANDARD_LENGTH","MASS.x")) |> 
-  distinct() |> 
-  mutate(MASS_MIDPOINT =coalesce(MASS_MIDPOINT, MASS_MALE), 
-         SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE)) 
+  distinct()
 
 clutches <- m2.5_df |> 
   select(CLUTCH_NUMBER)
@@ -118,7 +113,7 @@ egg_df_all <- egg |>
          .keep ="unused") |> 
   mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
          MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2) |> 
-  left_join(select(reprod.data, c("CLUTCH_NUMBER","EGG_COUNT","HATCHING_SUCCESS")), by="CLUTCH_NUMBER")
+  left_join(select(reprod.data, c("CLUTCH_NUMBER","EGG_COUNT","HATCHING_TIME")), by="CLUTCH_NUMBER")
 
 egg_df <- egg_df_all |>
   group_by(CLUTCH_NUMBER) |> 
@@ -133,43 +128,41 @@ egg_df <- egg_df_all |>
   
 egg_df <- clutches |> 
   inner_join(egg_df, by="CLUTCH_NUMBER") |> 
-  mutate(REPRODUCTIVE_OUTPUT = MEDIAN_EGG_SIZE * EGG_COUNT) |> 
-  drop_na(REPRODUCTIVE_OUTPUT)
+  drop_na(HATCHING_TIME) 
 ```
 
 # Exploratory data analysis 
 
 ```{r fig.width=12, fig.height=6, warning=FALSE, message=FALSE}
-plot1 <- ggplot(egg_df, aes(x=MASS_FEMALE, y=HATCHING_SUCCESS, color=TEMPERATURE)) +
-  geom_point(alpha=0.05) + 
-  stat_smooth(method = "lm", se=FALSE) +
+plot1 <- ggplot(egg_df, aes(x=TEMPERATURE, y=HATCHING_TIME, color=TEMPERATURE, fill=TEMPERATURE)) +
+  geom_dotplot(binaxis="y") + 
   scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
-  ggtitle("HATCHING SUCCESS") +
+  ggtitle("HATCHING TIME") +
   theme_classic(); plot1
-```
+
+plot2 <- ggplot(egg_df, aes(x=MASS_FEMALE, y=HATCHING_TIME, color=TEMPERATURE, fill=TEMPERATURE)) +
+  geom_point() + 
+  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
+  ggtitle("HATCHING TIME") +
+  theme_classic(); plot2
+``` 
 
 # Descriptive statistics 
 
 ```{r}
-datasummary(Factor(POPULATION) ~ Factor(TEMPERATURE), 
+datasummary(Factor(TEMPERATURE) ~ Factor(HATCHING_TIME), 
             data=egg_df, 
             fmt = "%.0f") 
 ```
 
-```{r}
-datasummary(Factor(TEMPERATURE) ~ EGG_SIZE * (NUnique + mean + median + min + max + sd + Histogram), 
-            data = drop_na(egg_df_all),  
-            fmt = "%.2f")
-```  
-
 # Fit models [random factors] 
 
 ```{r}
-modelNULL <- glmmTMB(HATCHING_SUCCESS ~ 1, 
+modelNULL <- glmmTMB(HATCHING_TIME ~ 1, 
                   family=gaussian(),
                   data =egg_df)
 
-model1 <- glmmTMB(HATCHING_SUCCESS ~ (1|FEMALE), 
+model1 <- glmmTMB(HATCHING_TIME ~ (1|FEMALE), 
                   family=gaussian(),
                   data = egg_df)
 
@@ -182,23 +175,9 @@ BIC(modelNULL, model1)
 ## Main hypothesis
 
 ```{r}
-model1a <- glmmTMB(HATCHING_SUCCESS ~ TEMPERATURE + scale(MASS_FEMALE, center=TRUE) + (1|FEMALE), 
-                    family=beta_family(), 
+model1a <- glmmTMB(HATCHING_TIME ~ TEMPERATURE + (1|FEMALE), 
+                    family=gaussian(link="identity"), 
                     data=egg_df)
-```
-
-## Alternative hypothesis
-
-```{r}
-model1b <- glmmTMB(HATCHING_SUCCESS ~ TEMPERATURE + scale(MASS_FEMALE, center=TRUE) + scale(as.numeric(DAYS_IN_TREATMENT), center=TRUE) + scale(MEDIAN_EGG_SIZE, center=TRUE) +  (1|FEMALE), 
-                    family=beta_family(), 
-                    data=egg_df)
-```
-
-## Model selection
-
-```{r}
-AICc(model1a, model1b, k=5) 
 ```
 
 # Model validation {.tabset}
@@ -209,22 +188,19 @@ AICc(model1a, model1b, k=5)
 model1a |> 
   simulateResiduals(plot=TRUE)  
 
-model1a |> testResiduals(plot=T) 
-``` 
+model1a |> testResiduals(plot=T)  
 
-## {-}
+performance::check_model(model1a, detrend=FALSE)
+``` 
 
 # Partial effect plots
 
 ```{r}
-model1a |> ggemmeans(~MASS_FEMALE) |> 
-  plot(add.data =TRUE) 
-
 model1a |> ggemmeans(~TEMPERATURE) |> 
   plot(add.data =FALSE)
-``` 
+```
 
-# Model investigation {.tabset}
+# Model investigation {.tabset} 
 
 ## Summary
 
@@ -249,56 +225,45 @@ model1a |> confint()
 ```{r}
 model1a |> r2_nakagawa()
 ```
-# Post-hoc 
+
+# Post-hoc analysis 
 
 ```{r}
 model1a |> emmeans(~TEMPERATURE, type ="response")
 model1a |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary() 
 ```
 
-## {-}   
-
 # Summary figure 
 
 ```{r warning=FALSE}
-egg_df <- egg_df |> drop_na(HATCHING_SUCCESS, MASS_FEMALE)
-egg.emm <- emmeans(model1a, ~ MASS_FEMALE*TEMPERATURE, 
-                 at =list(MASS_FEMALE=seq(from =min(egg_df$MASS_FEMALE), to =max(egg_df$MASS_FEMALE), by=.25)))
+egg_df <- egg_df |> drop_na(HATCHING_TIME)
 
-hs.df <- as.data.frame(egg.emm)
-
-hs.obs <- egg_df |> 
+time.obs <- egg_df |> 
   mutate(Pred =predict(model1a, re.form=NA, type ='response'), 
          Resid =residuals(model1a, type ='response'), 
          Fit =Pred+Resid) 
 
-hs.obs.summarize <-  hs.obs |> 
+time.obs.summarize <-  time.obs |> 
   group_by(FEMALE, TEMPERATURE) |> 
-  summarise(mean.hs =mean(Fit, na.rm=TRUE), 
+  summarise(mean.time =mean(Fit, na.rm=TRUE), 
             mean.mass.female =mean(MASS_FEMALE, na.rm = TRUE), 
-            min.hs =min(Fit, na.rm=TRUE), 
-            max.hs =max(Fit, na.rm=TRUE),
-            sd.hs =sd(Fit, na.rm =TRUE), 
-            n.hs = n()) |> 
-  mutate(se.hs = sd.hs / sqrt(n.hs), 
-         lower.ci.hs =mean.hs - qt(1-(0.05/2), n.hs -1) * se.hs, 
-         upper.ci.hs =mean.hs + qt(1-(0.05/2), n.hs -1) * se.hs)|> 
+            min.time =min(Fit, na.rm=TRUE), 
+            max.time =max(Fit, na.rm=TRUE),
+            sd.time =sd(Fit, na.rm =TRUE), 
+            n.time = n()) |> 
+  mutate(se.time = sd.time / sqrt(n.time), 
+         lower.ci.time =mean.time - qt(1-(0.05/2), n.time -1) * se.time, 
+         upper.ci.time =mean.time + qt(1-(0.05/2), n.time -1) * se.time)|> 
   ungroup()
 
-hs.obs.summarize2 <- hs.obs.summarize |> 
+time.obs.summarize2 <- time.obs.summarize |> 
   group_by(TEMPERATURE) |> 
-  mutate(temp_mean =mean(mean.hs), 
-         temp_sd =sd(mean.hs)) |> 
+  mutate(temp_mean =mean(mean.time), 
+         temp_sd =sd(mean.time)) |> 
   distinct(temp_mean, .keep_all = TRUE) 
 
-mod = lm(mean.hs ~ TEMPERATURE,  
-         data =hs.obs.summarize)
-
-mod.mass <- emmeans(mod, ~ TEMPERATURE, 
-                 at =list(mean.mass.female=seq(from =min(hs.obs.summarize$mean.mass.female), to =max(hs.obs.summarize$mean.mass.female), by=.01))) |> as.data.frame()
-
-hs.plot2 <- ggplot(hs.obs.summarize, aes(x=TEMPERATURE, y=mean.hs, color=TEMPERATURE)) + 
-  geom_pointrange(data=hs.obs.summarize2, 
+time.plot2 <- ggplot(time.obs.summarize, aes(x=TEMPERATURE, y=mean.time, color=TEMPERATURE)) + 
+  geom_pointrange(data=time.obs.summarize2, 
                   aes(x=TEMPERATURE, 
                       y=temp_mean, 
                       ymin=temp_mean - temp_sd, 
@@ -308,10 +273,9 @@ hs.plot2 <- ggplot(hs.obs.summarize, aes(x=TEMPERATURE, y=mean.hs, color=TEMPERA
               alpha=0.3) +  
   scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
   scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
-  scale_y_continuous(limits = c(0,1), breaks=seq(0, 1, .1))+
+  scale_y_continuous(limits = c(7,13), breaks=seq(7, 13, 1))+
   theme_classic() + 
   ylab("") + 
   theme(legend.position = c(0.8,0.9), 
-                                legend.box.background = element_rect(color = "black", size=2)); hs.plot2
+                                legend.box.background = element_rect(color = "black", size=2)); time.plot2
 ```
-

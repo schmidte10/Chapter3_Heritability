@@ -219,10 +219,26 @@ m2.mass.obs.summarize <-  m2.mass.obs |>
          upper.ci.mass =mean.mass + qt(1-(0.05/2), n.mass -1) * se.mass) |> 
   ungroup()
 
-m2.plot <- ggplot(data = m2.mass.df, aes(x=MASS_MALE, y=emmean)) + 
-  stat_smooth(aes(color=TEMPERATURE), 
-              method = "lm") + 
-  geom_ribbon(aes(ymin=lower.CL, ymax=upper.CL, fill=TEMPERATURE), alpha=0.5) +
+m2.mass.obs.summarize2 <- m2.mass.obs.summarize |> 
+  group_by(TEMPERATURE) |> 
+  mutate(temp_mean =mean(mean.mass), 
+         temp_sd =sd(mean.mass)) |> 
+  distinct(temp_mean, .keep_all = TRUE) 
+
+mod = lm(mean.mass ~ mean.mass.male*TEMPERATURE,  
+         data =m2.mass.obs.summarize)
+
+mod.mass <- emmeans(mod, ~ mean.mass.male*TEMPERATURE, 
+                 at =list(mean.mass.male=seq(from =min(m2.mass.obs.summarize$mean.mass.male), to =max(m2.mass.obs.summarize$mean.mass.male), by=.25))) |> as.data.frame()
+
+m2.plot <- ggplot(data = m2.mass.df, aes(x=MASS_MALE, y=response)) + 
+  stat_smooth(data=m2.mass.obs.summarize, aes(x =mean.mass.male, 
+                                                  y =mean.mass, color=TEMPERATURE), 
+              method = "lm", 
+              se=FALSE) + 
+  geom_ribbon(data=mod.mass, aes(x =mean.mass.male, 
+                                                  y =emmean, 
+                               ymin=lower.CL, ymax=upper.CL, fill=TEMPERATURE), alpha=0.5) +
   geom_pointrange(data = m2.mass.obs.summarize, aes(x =mean.mass.male, 
                                                   y =mean.mass, 
                                                   ymin =lower.ci.mass, 
@@ -237,6 +253,29 @@ m2.plot <- ggplot(data = m2.mass.df, aes(x=MASS_MALE, y=emmean)) +
   ggtitle("Offspring-male relationship: 1-month offspring") +
   theme_classic()+theme(legend.position = 'none')
 
+m2.plot2 <- ggplot(m2.mass.obs.summarize, aes(x=TEMPERATURE, y=mean.mass, color=TEMPERATURE)) + 
+  geom_pointrange(data=m2.mass.obs.summarize2, 
+                  aes(x=TEMPERATURE, 
+                      y=temp_mean, 
+                      ymin=temp_mean - temp_sd, 
+                      ymax=temp_mean + temp_sd), 
+                  size = 1) + 
+  geom_jitter(width=0.05, 
+              alpha=0.3) +  
+  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
+  scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
+  scale_y_continuous(limits = c(0,0.5), breaks = seq(0,0.5,by=0.05))+
+  theme_classic() + 
+  ylab("") + 
+  theme(legend.position = c(0.8,0.9), 
+                                legend.box.background = element_rect(color = "black", size=2))
+
+m2.plot.final <-m2.plot + m2.plot2 + 
+  plot_layout(guides = "collect" & theme(legend.position = "bottom"), 
+              widths = c(2,1)); m2.plot.final
+```
+
+```{r eval=FALSE, echo=FALSE}
 m2.density <- ggdensity(m2.mass.obs, x="Fit", 
           color = "TEMPERATURE", 
           fill = "TEMPERATURE", 
@@ -304,6 +343,19 @@ cv_within <- m2.mass.obs |>
 within_var <- aov(CV ~ TEMPERATURE, 
                   data=cv_within) 
 summary(within_var) 
+
+cv_within_summ <- cv_within |> 
+  group_by(TEMPERATURE) |> 
+  mutate(mean_CV =mean(CV), 
+         mean_mean =mean(mean_value), 
+         mean_sd =mean(sd_value),
+         nsample =n()) |>
+  mutate(ser_value = sd_value/sqrt(nsample), 
+         lower.ci =mean_CV - qt(1-(0.05/2), nsample -1) * ser_value, 
+         upper.ci =mean_CV + qt(1-(0.05/2), nsample -1) * ser_value) |>
+  ungroup() |> 
+  distinct(TEMPERATURE, .keep_all=TRUE) |> 
+  select(c("TEMPERATURE","mean_CV","mean_mean","mean_sd")); cv_within_summ
 ```
 
 # Among parental variation
@@ -312,10 +364,18 @@ cv_among <- cv_within |>
   group_by(TEMPERATURE) |> 
   mutate(mean_among =mean(CV), 
          sd_among =sd(CV), 
+         nsamples=n(),
          cv_among =(sd_among/mean_among)*100) |> 
   ungroup() |> 
   distinct(cv_among, .keep_all = T) |> 
-  select(c("TEMPERATURE","cv_among")) |> 
+  select(c("TEMPERATURE","cv_among","sd_among","mean_among","nsamples")) |> 
   arrange(TEMPERATURE)
-cv_among
+
+##final cv values
+cv_among2 <- data.frame(x=c("27v30","28v30","27v28"))
+cv_among2$cv_among[1] =log(cv_among$cv_among[1]/cv_among$cv_among[3]) 
+cv_among2$cv_among[2] =log(cv_among$cv_among[2]/cv_among$cv_among[3]) 
+cv_among2$cv_among[3] =log(cv_among$cv_among[1]/cv_among$cv_among[2]) 
+
+cv_among; cv_among2
 ```

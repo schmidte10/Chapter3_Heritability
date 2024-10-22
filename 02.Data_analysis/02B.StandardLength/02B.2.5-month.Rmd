@@ -202,6 +202,9 @@ model1b |> confint()
 ```{r}
 model1b |> r2_nakagawa()
 ``` 
+
+## {-}
+
 # Post-hoc 
 
 ## emmeans 
@@ -210,9 +213,6 @@ model1b |> r2_nakagawa()
 model1b |> emmeans(pairwise ~TEMPERATURE, type="response")
 ```
 
-
-
-## {-}
 
 # Summary figure
 
@@ -236,7 +236,7 @@ m3.sl.obs.summarize <-  m3.sl.obs |>
   mutate(se.sl = sd.sl / sqrt(n.sl), 
          lower.ci.sl =mean.sl - qt(1-(0.05/2), n.sl -1) * se.sl, 
          upper.ci.sl =mean.sl + qt(1-(0.05/2), n.sl -1) * se.sl) |> 
-  ungroup()
+  ungroup() 
 
 mod = lm(mean.sl ~ mean.sl.male*TEMPERATURE, 
          data =m3.sl.obs.summarize)
@@ -258,13 +258,46 @@ m3.plot <- ggplot(data = m3.sl.df, aes(x=SL_MALE, y=emmean)) +
                                                   color = TEMPERATURE)) +  
   scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
   scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
-  facet_wrap(~TEMPERATURE)+
-  scale_y_continuous(limits = c(15,35), breaks = seq(15,35,by=1))+
+  facet_wrap(~TEMPERATURE) +
+  scale_y_continuous(limits = c(20,30), breaks = seq(20,30,by=1)) +
   xlab("PARENTAL MALE STANDARD LENGTH (mm)") + 
   ylab("OFFSPRING STANDARD LENGTH (mm)") + 
   ggtitle("Offspring-male relationship") +
-  theme_classic()+theme(legend.position = 'none')
+  theme_classic()+theme(legend.position = 'none'); m3.plot 
 
+m3.sl.obs.summarize2 <- m3.sl.obs.summarize |> 
+  group_by(TEMPERATURE) |> 
+  mutate(temp_mean =mean(mean.sl), 
+         temp_sd =sd(mean.sl)) |> 
+  distinct(temp_mean, .keep_all = TRUE)
+
+m3.plot2 <- ggplot(m3.sl.obs.summarize, aes(x=TEMPERATURE, y=mean.sl, color=TEMPERATURE)) + 
+  geom_pointrange(data=m3.sl.obs.summarize2, 
+                  aes(x=TEMPERATURE, 
+                      y=temp_mean, 
+                      ymin=temp_mean - temp_sd, 
+                      ymax=temp_mean + temp_sd), 
+                  size = 1) + 
+  geom_jitter(width=0.05, 
+              alpha=0.3) +  
+  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
+  scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
+  scale_y_continuous(limits = c(20,30), breaks = seq(20,30,by=1))+
+  theme_classic() + 
+  ylab("") + 
+  theme(legend.position = c(0.8,0.9), 
+                                legend.box.background = element_rect(color = "black", size=2))
+
+m3.plot.final <-m3.plot + m3.plot2 + 
+  plot_layout(guides = "collect" & theme(legend.position = "bottom"), 
+              widths = c(2,1)); m3.plot.final
+
+```
+
+
+
+
+```{r eval=FALSE, echo=FALSE}
 m3.density <- ggdensity(m3.sl.obs, x="Fit", 
           color = "TEMPERATURE", 
           fill = "TEMPERATURE", 
@@ -317,7 +350,7 @@ df.results.1 <- m3.sl.obs.summarize |>
 cv_within <- m3.sl.obs |> 
   group_by(MALE) |> 
   mutate(mean_value =mean(Fit), 
-         sdr_value =sd(Resid), 
+         sdr_value =sd(Fit), 
          CV =(sdr_value/mean_value) *100) |>
   ungroup() |> 
   select(-c("DATE_OF_HATCH","STANDARD_LENGTH","MASS.x","Pred","Fit","Resid")) |> 
@@ -337,26 +370,32 @@ emmeans(within_var, ~TEMPERATURE) |> summary()
 
 cv_within_summ <- cv_within |> 
   group_by(TEMPERATURE) |> 
-  mutate(mean_value =mean(CV), 
+  mutate(mean_CV =mean(CV), 
+         mean_mean =mean(mean_value), 
+         mean_sd =mean(sdr_value),
          nsample =n()) |>
   mutate(ser_value = sdr_value/sqrt(nsample), 
-         lower.ci =mean_value - qt(1-(0.05/2), nsample -1) * ser_value, 
-         upper.ci =mean_value + qt(1-(0.05/2), nsample -1) * ser_value) |>
+         lower.ci =mean_CV - qt(1-(0.05/2), nsample -1) * ser_value, 
+         upper.ci =mean_CV + qt(1-(0.05/2), nsample -1) * ser_value) |>
   ungroup() |> 
-  distinct(TEMPERATURE, .keep_all=TRUE) 
+  distinct(TEMPERATURE, .keep_all=TRUE) |> 
+  select(c("TEMPERATURE","mean_CV","mean_mean","mean_sd")); cv_within_summ
+```
 
-ggplot(cv_within, aes(x=TEMPERATURE, y=CV, color=TEMPERATURE)) + 
-  geom_pointrange(data=cv_within_summ, 
-                  aes(x=TEMPERATURE, 
-                      y=mean_value, 
-                      ymin=lower.ci, 
-                      ymax=upper.ci)) + 
-  geom_jitter(width=0.05, 
-              alpha=0.2) +  
-  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
-  scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
-  theme_classic() + 
-  ylab("CVr")
+```{r eval=FALSE, echo =FALSE}
+cv_within_summ <- cv_within |> 
+  group_by(TEMPERATURE) |> 
+  mutate(mean_value =mean(mean_value),
+         CV_mean = mean(CV),
+         sdr_mean =sd(CV),
+         nsample =n()) |>
+  mutate(ser_value = sdr_value/sqrt(nsample), 
+         lower.sd =CV_mean - sdr_mean, 
+         upper.sd =CV_mean + sdr_mean) |>
+  ungroup() |> 
+  distinct(TEMPERATURE, .keep_all=TRUE) |> 
+  select(c("TEMPERATURE","CV_mean","mean_value","sdr_value","lower.sd","upper.sd")); cv_within_summ
+
 ```
 
 # Among parental variation
@@ -364,14 +403,14 @@ ggplot(cv_within, aes(x=TEMPERATURE, y=CV, color=TEMPERATURE)) +
 cv_among <-  m3.sl.obs |> 
   group_by(MALE) |> 
   mutate(mean_value =mean(Fit), 
-         sdr_value =sd(Resid), 
+         sdr_value =sd(Fit), 
          CV =(sdr_value/mean_value) *100) |>
   ungroup() |> 
   select(-c("DATE_OF_HATCH","STANDARD_LENGTH","MASS.x","Pred","Fit","Resid")) |> 
   distinct(MALE, .keep_all=TRUE) |> 
   group_by(TEMPERATURE) |> 
   mutate(mean_among =mean(CV), 
-         sdr_among =sd(sdr_value), 
+         sdr_among =sd(CV), 
          nsamples=n(),
          cv_among =(sdr_among/mean_among)*100) |> 
   ungroup() |> 
@@ -384,9 +423,9 @@ cv_among <-  m3.sl.obs |>
 
 
 cv_among2 <- data.frame(x=c("27v30","28v30","27v28"))
-cv_among2$cv_among[1] =log(cv_among$cv_among[1]/cv_among$cv_among[3]) + 1/2*(cv_among$nsamples[1]) - 1/2*(cv_among$nsamples[3]) 
-cv_among2$cv_among[2] =log(cv_among$cv_among[2]/cv_among$cv_among[3]) + 1/2*(cv_among$nsamples[2]) - 1/2*(cv_among$nsamples[3])
-cv_among2$cv_among[3] =log(cv_among$cv_among[1]/cv_among$cv_among[2]) + 1/2*(cv_among$nsamples[1]) - 1/2*(cv_among$nsamples[2])
+cv_among2$cv_among[1] =log(cv_among$cv_among[1]/cv_among$cv_among[3]) 
+cv_among2$cv_among[2] =log(cv_among$cv_among[2]/cv_among$cv_among[3]) 
+cv_among2$cv_among[3] =log(cv_among$cv_among[1]/cv_among$cv_among[2]) 
 
 cv_among; cv_among2
 ```

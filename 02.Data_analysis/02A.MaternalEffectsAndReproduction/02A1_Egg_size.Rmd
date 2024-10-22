@@ -327,17 +327,33 @@ egg.obs.summarize <-  egg.obs |>
   mutate(se.eggsize = sd.eggsize / sqrt(n.eggsize), 
          lower.ci.eggsize =mean.eggsize - qt(1-(0.05/2), n.eggsize -1) * se.eggsize, 
          upper.ci.eggsize =mean.eggsize + qt(1-(0.05/2), n.eggsize -1) * se.eggsize) |> 
-  ungroup()
+  ungroup() 
 
-eggsize.plot <- ggplot(data = egg.df, aes(x=MASS_FEMALE, y=emmean)) + 
-  stat_smooth(aes(color=TEMPERATURE), 
-              method = "lm") + 
-  geom_ribbon(aes(ymin=lower.CL, ymax=upper.CL, fill=TEMPERATURE), alpha=0.5) +
+egg.obs.summarize2 <- egg.obs.summarize |> 
+  group_by(TEMPERATURE) |> 
+  mutate(temp_mean =mean(mean.eggsize), 
+         temp_sd =sd(mean.eggsize)) |> 
+  distinct(temp_mean, .keep_all = TRUE) 
+
+mod = lm(mean.eggsize ~ mean.mass.female*TEMPERATURE,  
+         data =egg.obs.summarize)
+
+mod.mass <- emmeans(mod, ~ mean.mass.female*TEMPERATURE, 
+                 at =list(mean.mass.female=seq(from =min(egg.obs.summarize$mean.mass.female), to =max(egg.obs.summarize$mean.mass.female), by=.25))) |> as.data.frame()
+
+egg.plot <- ggplot(data = egg.df, aes(x=MASS_FEMALE, y=response)) + 
+  stat_smooth(data=egg.obs.summarize, aes(x =mean.mass.female, 
+                                                  y =mean.eggsize, color=TEMPERATURE), 
+              method = "lm", 
+              se=FALSE) + 
+  geom_ribbon(data=mod.mass, aes(x =mean.mass.female, 
+                                                  y =emmean, 
+                               ymin=lower.CL, ymax=upper.CL, fill=TEMPERATURE), alpha=0.5) +
   geom_pointrange(data = egg.obs.summarize, aes(x =mean.mass.female, 
                                                   y =mean.eggsize, 
                                                   ymin =lower.ci.eggsize, 
                                                   ymax =upper.ci.eggsize, 
-                                                  color = TEMPERATURE)) +  
+                                                  color = TEMPERATURE))  +  
   scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
   scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
   scale_y_continuous(limits = c(0.02,.07), breaks=seq(0.02, .07, .01)) +
@@ -346,8 +362,31 @@ eggsize.plot <- ggplot(data = egg.df, aes(x=MASS_FEMALE, y=emmean)) +
   ylab("Egg size (mm^2)") + 
   ggtitle("Maternal-egg size relationship") +
   theme_classic() + 
-  theme(legend.position = "none")
+  theme(legend.position = "none") 
 
+egg.plot2 <- ggplot(egg.obs.summarize, aes(x=TEMPERATURE, y=mean.eggsize, color=TEMPERATURE)) + 
+  geom_pointrange(data=egg.obs.summarize2, 
+                  aes(x=TEMPERATURE, 
+                      y=temp_mean, 
+                      ymin=temp_mean - temp_sd, 
+                      ymax=temp_mean + temp_sd), 
+                  size = 1) + 
+  geom_jitter(width=0.05, 
+              alpha=0.3) +  
+  scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
+  scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
+  scale_y_continuous(limits = c(0.02,.07), breaks=seq(0.02, .07, .01))+
+  theme_classic() + 
+  ylab("") + 
+  theme(legend.position = c(0.8,0.9), 
+                                legend.box.background = element_rect(color = "black", size=2))
+
+egg.plot.final <-egg.plot + egg.plot2 + 
+  plot_layout(guides = "collect" & theme(legend.position = "bottom"), 
+              widths = c(2,1)); egg.plot.final
+```
+
+```{r eval=FALSE, echo =FALSE}
 eggsize.density <- ggdensity(egg.obs, x="Fit", 
           color = "TEMPERATURE", 
           fill = "TEMPERATURE", 
@@ -392,7 +431,7 @@ df.results.eggsize <- egg.obs.summarize |>
   inner_join(add.df, by="TEMPERATURE"); df.results.eggsize
 ``` 
 
-# variation of clutches 
+# Within parental variation 
 
 ```{r}
 cv_within <- egg.obs |> 
@@ -408,25 +447,40 @@ within_var <- aov(CV ~ TEMPERATURE,
                   data=cv_within) 
 summary(within_var) 
 emmeans(within_var, ~TEMPERATURE)
+
+cv_within_summ <- cv_within |> 
+  group_by(TEMPERATURE) |> 
+  mutate(mean_CV =mean(CV), 
+         mean_mean =mean(mean_value), 
+         mean_sd =mean(sd_value),
+         nsample =n()) |>
+  mutate(ser_value = sd_value/sqrt(nsample), 
+         lower.ci =mean_CV - qt(1-(0.05/2), nsample -1) * ser_value, 
+         upper.ci =mean_CV + qt(1-(0.05/2), nsample -1) * ser_value) |>
+  ungroup() |> 
+  distinct(TEMPERATURE, .keep_all=TRUE) |> 
+  select(c("TEMPERATURE","mean_CV","mean_mean","mean_sd")) |> 
+  arrange(TEMPERATURE); cv_within_summ
 ```
 
 # variation among clutches
 ```{r}
-cv_among <- egg.obs |> 
-  group_by(FEMALE) |> 
-  mutate(mean_value =mean(Fit), 
-         sd_value =sd(Fit), 
-         CV =(sd_value/mean_value) * 100) |>
-  ungroup() |> 
-  select(-c("SAMPLE","Pred","Fit","Resid")) |> 
-  distinct(FEMALE, .keep_all=TRUE) |> 
+cv_among <- cv_within |> 
   group_by(TEMPERATURE) |> 
   mutate(mean_among =mean(CV), 
          sd_among =sd(CV), 
+         nsamples=n(),
          cv_among =(sd_among/mean_among)*100) |> 
   ungroup() |> 
   distinct(cv_among, .keep_all = T) |> 
-  select(c("TEMPERATURE","cv_among")) |> 
-  arrange(as.numeric(TEMPERATURE))
-cv_among
+  select(c("TEMPERATURE","cv_among","sd_among","mean_among","nsamples")) |> 
+  arrange(TEMPERATURE)
+
+##final cv values
+cv_among2 <- data.frame(x=c("27v30","28v30","27v28"))
+cv_among2$cv_among[1] =log(cv_among$cv_among[1]/cv_among$cv_among[3]) 
+cv_among2$cv_among[2] =log(cv_among$cv_among[2]/cv_among$cv_among[3]) 
+cv_among2$cv_among[3] =log(cv_among$cv_among[1]/cv_among$cv_among[2]) 
+
+cv_among; cv_among2
 ```

@@ -1,0 +1,31 @@
+COMPARISON,TRAIT1,TRAIT2,TRAIT3,TRAIT4,CV
+27v30,maternal effects,maternal effects,egg size,egg size,-0.46
+28.5v30,maternal effects,maternal effects,egg size,egg size,-0.24
+27v28,maternal effects,maternal effects,egg size,egg size,-0.22
+27v30,maternal effects,maternal effects,yolk sac,yolk sac,0.22
+28.5v30,maternal effects,maternal effects,yolk sac,yolk sac,0.39
+27v28,maternal effects,maternal effects,yolk sac,yolk sac,-0.18
+27v30,morphology,standard length,hatching,hatching_sl,0.12
+28.5v30,morphology,standard length,hatching,hatching_sl,0.13
+27v28,morphology,standard length,hatching,hatching_sl,-0.0045
+27v30,morphology,standard length,1-month,1-month_sl,-0.015
+28.5v30,morphology,standard length,1-month,1-month_sl,0.036
+27v28,morphology,standard length,1-month,1-month_sl,-0.05
+27v30,morphology,standard length,2-months,2-months_sl,-0.062
+28.5v30,morphology,standard length,2-months,2-months_sl,-0.0034
+27v28,morphology,standard length,2-months,2-months_sl,-0.059
+27v30,morphology,standard length,2.5-months,2.5-months_sl,0.52
+28.5v30,morphology,standard length,2.5-months,2.5-months_sl,0.61
+27v28,morphology,standard length,2.5-months,2.5-months_sl,-0.089
+27v30,morphology,mass,hatching,hatching_m,0.38
+28.5v30,morphology,mass,hatching,hatching_m,-0.031
+27v28,morphology,mass,hatching,hatching_m,0.41
+27v30,morphology,mass,1-month,1-month_m,0.28
+28.5v30,morphology,mass,1-month,1-month_m,0.21
+27v28,morphology,mass,1-month,1-month_m,0.071
+27v30,morphology,mass,2-months,2-months_m,-0.19
+28.5v30,morphology,mass,2-months,2-months_m,0.17
+27v28,morphology,mass,2-months,2-months_m,-0.35
+27v30,morphology,mass,2.5-months,2.5-months_m,0.13
+28.5v30,morphology,mass,2.5-months,2.5-months_m,0.18
+27v28,morphology,mass,2.5-months,2.5-months_m,-0.043
