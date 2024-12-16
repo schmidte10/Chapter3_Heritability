@@ -411,15 +411,6 @@ model1b |> testResiduals(plot=T)
 
 ## performance 
 
-
-``` r
-check_model(model1b, detrend=FALSE)
-```
-
-```
-## `check_outliers()` does not yet support models of class `glmmTMB`.
-```
-
 ![](02A1_Egg_size_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
 
 ## {-} 
