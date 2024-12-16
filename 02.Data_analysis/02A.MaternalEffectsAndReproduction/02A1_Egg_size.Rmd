@@ -4,6 +4,7 @@ author: "Elliott Schmidt"
 date: "`r Sys.Date()`"
 output: 
   html_document: 
+    keep_md: yes
     toc: true  
     toc_depth: 2
     toc_float: true
@@ -18,6 +19,29 @@ output:
     latex_engine: xelatex
 --- 
 
+```{r klippy, echo=FALSE, include=TRUE}
+klippy::klippy()
+```
+
+# Scenario 
+
+Understanding species responses to climate change is inherently complex as organisms are constantly responding to changes in their environment via natural selection. However, for species to retain their capacity to respond to climate via natural selection, heritability of traits as well as phenotypic variation in fitness-related traits must be retained. By investigating shifts in heritability and phenotypic variation under elevated temperatures, an understanding of species ability to respond to climate change can be understood. Yet, for many species, shifts in adaptive potential and phenotypic variance are not incorporated into models that aim to predict species responses to climate change. Within this study a coral reef fish, _Acanthochromis polyacanthus_, was used to elucidate how heritability and phenotypic variation may influence species responses to warming. Adult breeding pairs and offspring were exposed to temperatures of **27 °C, 28.5 °C, and 30 °C**. Results below pertain to measured egg size from breeding pairs held at different experimental temperature treatments. 
+
+# Location 
+
+![map](C:/Users/jc527762/OneDrive - James Cook University/PhD dissertation/Data/Chapter3_Heritability/Figure_files/map.jpg)
+
+# Glossary 
+
+--------------------- ------------------------------------------------------------------
+**EGG_SIZE**          Area of egg
+**MASS_FEMALE**       Mass of maternal fish 
+**EGG_COUNT**         Number of eggs laid within a clutch 
+**FEMALE**            Unique maternal identification code 
+**DAYS_IN_TREATMENT** Number of days breeding pair were at experimental temperatures 
+**CLUTCH_ORDER**      Clutch laid within a breeding season (1st, 2nd, 3rd etc)
+**POPULATION**        Reef breeding pair were collected from
+--------------------- -----------------------------------------------------------------
 # Load libraries
 
 ```{r load-libraries, warning=FALSE, message=FALSE}
@@ -168,9 +192,10 @@ ggarrange(plot1, plot2,
 # Descriptive statistics 
 
 ```{r}
-datasummary(Factor(POPULATION) ~ Factor(TEMPERATURE), 
-            data=egg_df, 
+datasummary(Factor(POPULATION) + 1 ~ Factor(TEMPERATURE), 
+            data=droplevels(egg_df),
             fmt = "%.0f") 
+
 ```
 
 ```{r}
@@ -273,6 +298,9 @@ model1b |> ggemmeans(~MASS_FEMALE|TEMPERATURE) |>
 ```{r}
 model1b |> emmeans(~TEMPERATURE, type ="response")
 model1b |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary() 
+
+egg.emmeans.df <- model1b |> emmeans(~TEMPERATURE, type ="response") |> as.data.frame()
+save(egg.emmeans.df, file="Figure_files/egg.emmeans.RData")
 ```
 
 
@@ -314,7 +342,7 @@ egg.emm <- emmeans(model1b, ~ MASS_FEMALE*TEMPERATURE,
 egg.df <- as.data.frame(egg.emm)
 
 egg.obs <- egg_df_all |> 
-  mutate(Pred =predict(model1b, re.form=NA, type ='response'), 
+  mutate(Pred =predict(model1b, re.form=NULL, type ='response'), 
          Resid =residuals(model1b, type ='response'), 
          Fit =Pred+Resid) 
 
@@ -351,8 +379,8 @@ egg.plot <- ggplot(data = egg.df, aes(x=MASS_FEMALE, y=response)) +
                                ymin=lower.CL, ymax=upper.CL, fill=TEMPERATURE), alpha=0.5) +
   geom_pointrange(data = egg.obs.summarize, aes(x =mean.mass.female, 
                                                   y =mean.eggsize, 
-                                                  ymin =lower.ci.eggsize, 
-                                                  ymax =upper.ci.eggsize, 
+                                                  ymin =mean.eggsize - sd.eggsize, 
+                                                  ymax =mean.eggsize + sd.eggsize, 
                                                   color = TEMPERATURE))  +  
   scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
   scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
@@ -377,13 +405,16 @@ egg.plot2 <- ggplot(egg.obs.summarize, aes(x=TEMPERATURE, y=mean.eggsize, color=
   scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
   scale_y_continuous(limits = c(0.02,.07), breaks=seq(0.02, .07, .01))+
   theme_classic() + 
-  ylab("") + 
-  theme(legend.position = c(0.8,0.9), 
+  ylab(bquote(`Egg area (mm)`^2)) + 
+  theme(legend.position = c(0.8,0.85), 
                                 legend.box.background = element_rect(color = "black", size=2))
 
 egg.plot.final <-egg.plot + egg.plot2 + 
   plot_layout(guides = "collect" & theme(legend.position = "bottom"), 
               widths = c(2,1)); egg.plot.final
+
+#save(egg.obs.summarize, file="Figure_files/egg.obs.summarize.RData")
+#save(egg.obs.summarize2, file="Figure_files/egg.obs.summarize2.RData")
 ```
 
 ```{r eval=FALSE, echo =FALSE}
@@ -484,3 +515,6 @@ cv_among2$cv_among[3] =log(cv_among$cv_among[1]/cv_among$cv_among[2])
 
 cv_among; cv_among2
 ```
+
+
+
