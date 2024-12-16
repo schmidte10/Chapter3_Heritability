@@ -497,56 +497,6 @@ model1b |> ggemmeans(~MASS_FEMALE|TEMPERATURE) |>
 
 ![](02A1_Egg_size_files/figure-html/unnamed-chunk-12-5.png)<!-- -->
 
-# Post-hoc analysis 
-
-
-``` r
-model1b |> emmeans(~TEMPERATURE, type ="response")
-```
-
-```
-## NOTE: Results may be misleading due to involvement in interactions
-```
-
-```
-##  TEMPERATURE emmean      SE  df lower.CL upper.CL
-##  27          0.0497 0.00117 600   0.0474   0.0520
-##  28.5        0.0484 0.00108 600   0.0463   0.0505
-##  30          0.0433 0.00102 600   0.0413   0.0453
-## 
-## Confidence level used: 0.95
-```
-
-``` r
-model1b |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary() |> print()
-```
-
-```
-## NOTE: Results may be misleading due to involvement in interactions
-```
-
-```
-##  contrast                        estimate      SE  df t.ratio p.value
-##  TEMPERATURE27 - TEMPERATURE28.5  0.00124 0.00159 600   0.783  0.7136
-##  TEMPERATURE27 - TEMPERATURE30    0.00638 0.00155 600   4.107  0.0001
-##  TEMPERATURE28.5 - TEMPERATURE30  0.00514 0.00149 600   3.451  0.0017
-## 
-## P value adjustment: tukey method for comparing a family of 3 estimates
-```
-
-``` r
-egg.emmeans.df <- model1b |> emmeans(~TEMPERATURE, type ="response") |> as.data.frame()
-```
-
-```
-## NOTE: Results may be misleading due to involvement in interactions
-```
-
-``` r
-save(egg.emmeans.df, file="Figure_files/egg.emmeans.RData")
-```
-
-
 # Model investigation {.tabset} 
 
 ## Summary
@@ -662,6 +612,54 @@ model1b |> r2_nakagawa()
 ## 
 ##   Conditional R2: 0.689
 ##      Marginal R2: 0.511
+```
+# Post-hoc analysis 
+
+
+``` r
+model1b |> emmeans(~TEMPERATURE, type ="response")
+```
+
+```
+## NOTE: Results may be misleading due to involvement in interactions
+```
+
+```
+##  TEMPERATURE emmean      SE  df lower.CL upper.CL
+##  27          0.0497 0.00117 600   0.0474   0.0520
+##  28.5        0.0484 0.00108 600   0.0463   0.0505
+##  30          0.0433 0.00102 600   0.0413   0.0453
+## 
+## Confidence level used: 0.95
+```
+
+``` r
+model1b |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary() |> print()
+```
+
+```
+## NOTE: Results may be misleading due to involvement in interactions
+```
+
+```
+##  contrast                        estimate      SE  df t.ratio p.value
+##  TEMPERATURE27 - TEMPERATURE28.5  0.00124 0.00159 600   0.783  0.7136
+##  TEMPERATURE27 - TEMPERATURE30    0.00638 0.00155 600   4.107  0.0001
+##  TEMPERATURE28.5 - TEMPERATURE30  0.00514 0.00149 600   3.451  0.0017
+## 
+## P value adjustment: tukey method for comparing a family of 3 estimates
+```
+
+``` r
+egg.emmeans.df <- model1b |> emmeans(~TEMPERATURE, type ="response") |> as.data.frame()
+```
+
+```
+## NOTE: Results may be misleading due to involvement in interactions
+```
+
+``` r
+save(egg.emmeans.df, file="Figure_files/egg.emmeans.RData")
 ```
 
 ## {-}

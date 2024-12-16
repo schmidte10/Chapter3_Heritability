@@ -304,17 +304,6 @@ model1b |> ggemmeans(~MASS_FEMALE|TEMPERATURE) |>
   plot(add.data =TRUE)
 ```
 
-# Post-hoc analysis 
-
-```{r}
-model1b |> emmeans(~TEMPERATURE, type ="response")
-model1b |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary() |> print()
-
-egg.emmeans.df <- model1b |> emmeans(~TEMPERATURE, type ="response") |> as.data.frame()
-save(egg.emmeans.df, file="Figure_files/egg.emmeans.RData")
-```
-
-
 # Model investigation {.tabset} 
 
 ## Summary
@@ -339,6 +328,15 @@ model1b |> confint()
 
 ```{r}
 model1b |> r2_nakagawa()
+```
+# Post-hoc analysis 
+
+```{r}
+model1b |> emmeans(~TEMPERATURE, type ="response")
+model1b |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary() |> print()
+
+egg.emmeans.df <- model1b |> emmeans(~TEMPERATURE, type ="response") |> as.data.frame()
+save(egg.emmeans.df, file="Figure_files/egg.emmeans.RData")
 ```
 
 ## {-}
