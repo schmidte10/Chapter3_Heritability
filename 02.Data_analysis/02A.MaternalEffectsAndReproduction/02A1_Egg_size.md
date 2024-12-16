@@ -273,24 +273,30 @@ model4 <- glmmTMB(EGG_SIZE ~ (1|FEMALE) + (1|POPULATION),
                   family=gaussian(),
                   data = egg_df_all)
 
-AIC(modelNULL, model1, model2, model3, model4, k=3) 
+print(AIC(modelNULL, model1, model2, model3, model4, k=3))
 ```
 
-<div data-pagedtable="false">
-  <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["df"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["AIC"],"name":[2],"type":["dbl"],"align":["right"]}],"data":[{"1":"2","2":"-6308.350","_rn_":"modelNULL"},{"1":"3","2":"-6305.916","_rn_":"model1"},{"1":"3","2":"-6488.199","_rn_":"model2"},{"1":"3","2":"-7075.279","_rn_":"model3"},{"1":"4","2":"-7075.215","_rn_":"model4"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
-  </script>
-</div>
+```
+##           df       AIC
+## modelNULL  2 -6308.350
+## model1     3 -6305.916
+## model2     3 -6488.199
+## model3     3 -7075.279
+## model4     4 -7075.215
+```
 
 ``` r
-BIC(modelNULL, model1, model2, model3, model4)
+print(BIC(modelNULL, model1, model2, model3, model4))
 ```
 
-<div data-pagedtable="false">
-  <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["df"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["BIC"],"name":[2],"type":["dbl"],"align":["right"]}],"data":[{"1":"2","2":"-6300.745","_rn_":"modelNULL"},{"1":"3","2":"-6294.509","_rn_":"model1"},{"1":"3","2":"-6476.792","_rn_":"model2"},{"1":"3","2":"-7063.871","_rn_":"model3"},{"1":"4","2":"-7060.006","_rn_":"model4"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
-  </script>
-</div>
+```
+##           df       BIC
+## modelNULL  2 -6300.745
+## model1     3 -6294.509
+## model2     3 -6476.792
+## model3     3 -7063.871
+## model4     4 -7060.006
+```
 
 # Fit fixed factors
 
@@ -316,14 +322,14 @@ model1b <- glmmTMB(EGG_SIZE ~ scale(MASS_FEMALE, center=TRUE)*TEMPERATURE + scal
 
 
 ``` r
-AICc(model1a, model1b, k=5) 
+print(AICc(model1a, model1b, k=5))
 ```
 
-<div data-pagedtable="false">
-  <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["df"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["AICc"],"name":[2],"type":["dbl"],"align":["right"]}],"data":[{"1":"9","2":"-4780.502","_rn_":"model1a"},{"1":"10","2":"-4805.280","_rn_":"model1b"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
-  </script>
-</div>
+```
+##         df      AICc
+## model1a  9 -4780.502
+## model1b 10 -4805.280
+```
 
 # Model validation {.tabset}
 
@@ -512,18 +518,21 @@ model1b |> emmeans(~TEMPERATURE, type ="response")
 ```
 
 ``` r
-model1b |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary() 
+model1b |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary() |> print()
 ```
 
 ```
 ## NOTE: Results may be misleading due to involvement in interactions
 ```
 
-<div data-pagedtable="false">
-  <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["contrast"],"name":[1],"type":["chr"],"align":["left"]},{"label":["estimate"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["SE"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["df"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["t.ratio"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["p.value"],"name":[6],"type":["dbl"],"align":["right"]}],"data":[{"1":"TEMPERATURE27 - TEMPERATURE28.5","2":"0.001244219","3":"0.001588998","4":"600","5":"0.7830214","6":"0.7136185396","_rn_":"1"},{"1":"TEMPERATURE27 - TEMPERATURE30","2":"0.006380010","3":"0.001553426","4":"600","5":"4.1070583","6":"0.0001349131","_rn_":"2"},{"1":"TEMPERATURE28.5 - TEMPERATURE30","2":"0.005135791","3":"0.001488279","4":"600","5":"3.4508246","6":"0.0017299231","_rn_":"3"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
-  </script>
-</div>
+```
+##  contrast                        estimate      SE  df t.ratio p.value
+##  TEMPERATURE27 - TEMPERATURE28.5  0.00124 0.00159 600   0.783  0.7136
+##  TEMPERATURE27 - TEMPERATURE30    0.00638 0.00155 600   4.107  0.0001
+##  TEMPERATURE28.5 - TEMPERATURE30  0.00514 0.00149 600   3.451  0.0017
+## 
+## P value adjustment: tukey method for comparing a family of 3 estimates
+```
 
 ``` r
 egg.emmeans.df <- model1b |> emmeans(~TEMPERATURE, type ="response") |> as.data.frame()
@@ -594,14 +603,22 @@ model1b |> summary()
 
 
 ``` r
-model1b |> Anova()
+model1b |> car::Anova() |> print()
 ```
 
-<div data-pagedtable="false">
-  <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["Chisq"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["Df"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["Pr(>Chisq)"],"name":[3],"type":["dbl"],"align":["right"]}],"data":[{"1":"45.651435","2":"1","3":"1.412825e-11","_rn_":"scale(MASS_FEMALE, center = TRUE)"},{"1":"24.177482","2":"2","3":"5.622460e-06","_rn_":"TEMPERATURE"},{"1":"30.693212","2":"1","3":"3.022205e-08","_rn_":"scale(as.numeric(DAYS_IN_TREATMENT), center = TRUE)"},{"1":"7.789251","2":"1","3":"5.255799e-03","_rn_":"scale(EGG_COUNT, center = TRUE)"},{"1":"1.998377","2":"2","3":"3.681781e-01","_rn_":"scale(MASS_FEMALE, center = TRUE):TEMPERATURE"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
-  </script>
-</div>
+```
+## Analysis of Deviance Table (Type II Wald chisquare tests)
+## 
+## Response: EGG_SIZE
+##                                                       Chisq Df Pr(>Chisq)    
+## scale(MASS_FEMALE, center = TRUE)                   45.6514  1  1.413e-11 ***
+## TEMPERATURE                                         24.1775  2  5.622e-06 ***
+## scale(as.numeric(DAYS_IN_TREATMENT), center = TRUE) 30.6932  1  3.022e-08 ***
+## scale(EGG_COUNT, center = TRUE)                      7.7893  1   0.005256 ** 
+## scale(MASS_FEMALE, center = TRUE):TEMPERATURE        1.9984  2   0.368178    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
 
 ## Confint
 

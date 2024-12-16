@@ -238,8 +238,8 @@ model4 <- glmmTMB(EGG_SIZE ~ (1|FEMALE) + (1|POPULATION),
                   family=gaussian(),
                   data = egg_df_all)
 
-AIC(modelNULL, model1, model2, model3, model4, k=3) 
-BIC(modelNULL, model1, model2, model3, model4)
+print(AIC(modelNULL, model1, model2, model3, model4, k=3))
+print(BIC(modelNULL, model1, model2, model3, model4))
 ```
 
 # Fit fixed factors
@@ -263,7 +263,7 @@ model1b <- glmmTMB(EGG_SIZE ~ scale(MASS_FEMALE, center=TRUE)*TEMPERATURE + scal
 ## Model selection
 
 ```{r}
-AICc(model1a, model1b, k=5) 
+print(AICc(model1a, model1b, k=5))
 ```
 
 # Model validation {.tabset}
@@ -308,7 +308,7 @@ model1b |> ggemmeans(~MASS_FEMALE|TEMPERATURE) |>
 
 ```{r}
 model1b |> emmeans(~TEMPERATURE, type ="response")
-model1b |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary() 
+model1b |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary() |> print()
 
 egg.emmeans.df <- model1b |> emmeans(~TEMPERATURE, type ="response") |> as.data.frame()
 save(egg.emmeans.df, file="Figure_files/egg.emmeans.RData")
@@ -326,7 +326,7 @@ model1b |> summary()
 ## Anova
 
 ```{r}
-model1b |> Anova()
+model1b |> car::Anova() |> print()
 ```
 
 ## Confint
