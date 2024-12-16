@@ -17,6 +17,16 @@ output:
     highlight: monochrome
     theme: cerulean
     latex_engine: xelatex
+  pdf_document:
+    df_print: default
+    fig_caption: yes
+    fig_height: 4
+    fig_width: 4
+    highlight: tango
+    latex_engine: xelatex
+    number_sections: yes
+    toc_depth: 2
+documentclass: article
 --- 
 
 
