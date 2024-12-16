@@ -17,6 +17,16 @@ output:
     highlight: monochrome
     theme: cerulean
     latex_engine: xelatex
+  pdf_document:
+    df_print: default
+    fig_caption: yes
+    fig_height: 4
+    fig_width: 4
+    highlight: tango
+    latex_engine: xelatex
+    number_sections: yes
+    toc_depth: 2
+documentclass: article
 --- 
 
 ```{r klippy, echo=FALSE, include=TRUE}
@@ -161,7 +171,7 @@ egg_df <- clutches |>
 
 # Exploratory data analysis 
 
-```{r fig.width=12, fig.height=6, warning=FALSE, message=FALSE}
+```{r fig.width=12, fig.height=6, warning=FALSE, message=FALSE, fig.show='hold'}
 plot1 <- ggplot(egg_df, aes(x=MASS_FEMALE, y=MEDIAN_EGG_SIZE, color=TEMPERATURE)) +
   geom_point(alpha=0.05) + 
   stat_smooth(method = "lm", se=FALSE) +
@@ -192,16 +202,17 @@ ggarrange(plot1, plot2,
 # Descriptive statistics 
 
 ```{r}
-datasummary(Factor(POPULATION) + 1 ~ Factor(TEMPERATURE), 
+table1 <- datasummary(Factor(POPULATION) + 1 ~ Factor(TEMPERATURE), 
             data=droplevels(egg_df),
             fmt = "%.0f") 
-
+print(table1@table_dataframe)
 ```
 
 ```{r}
-datasummary(Factor(TEMPERATURE) ~ EGG_SIZE * (NUnique + mean + median + min + max + sd + Histogram), 
+table2 <- datasummary(Factor(TEMPERATURE) ~ EGG_SIZE * (NUnique + mean + median + min + max + sd + Histogram), 
             data = drop_na(egg_df_all),  
-            fmt = "%.2f")
+            fmt = "%.2f") 
+print(table2)
 ``` 
 
 # Fit models [random factors] 
@@ -259,7 +270,7 @@ AICc(model1a, model1b, k=5)
 
 ## DHARMa
 
-```{r}
+```{r warning=FALSE, fig.width=8, fig.height=8, message=FALSE, warning=FALSE, results='markdown'}
 model1b |> 
   simulateResiduals(plot=TRUE)  
 
@@ -268,15 +279,15 @@ model1b |> testResiduals(plot=T)
 
 ## performance 
 
-```{r}
-check_model(model1b, detrend=FALSE)
+```{r fig.width=8, fig.height=8, message=FALSE, warning=FALSE, echo=FALSE}
+performance::check_model(model1b, detrend=FALSE)
 ```
 
 ## {-} 
 
 # Partial effect plots
 
-```{r}
+```{r fig.width=8, fig.height=6}
 model1b |> ggemmeans(~MASS_FEMALE) |> 
   plot(add.data =TRUE) 
 
