@@ -38,9 +38,14 @@ library(ggridges)
 # Import data
 
 ```{r message=FALSE, warning=FALSE}
+setwd("C:/Users/elliott/OneDrive/jc527762/PhD dissertation/Data/Chapter3_Heritability_ARCHIVED")
 hatch <- read_csv("import_data/hatchling_size_data_2022_2023.csv") |> 
   mutate(across(1:21,factor)) |> 
   drop_na(MASS)
+
+reprod.data <- read_csv("import_data/clutch_data_2022_2023.csv") |> 
+  mutate(across(c(1:7,16,23), factor))  |> 
+  mutate(PROJECT_CODE =factor(PROJECT_CODE))
 
 m1 <- read_csv("import_data/1_month_size_data_2022_2023.csv") |> 
   mutate(across(1:15,factor)) |> 
@@ -116,7 +121,14 @@ hatch_df_all <- hatch |>
   select(c("CLUTCH_NUMBER","MALE","FEMALE","REGION","POPULATION","TEMPERATURE",
            "TANK","CLUTCH_ORDER","PARENTAL_DAYS_IN_TREATMENT","DENSITY","AGE_DAYS","MASS", 
            "SL_MALE","MASS_MALE")) |> 
-  mutate(AGE ="hatch")
+  mutate(AGE ="hatch") 
+
+clutches <- reprod.data |> filter(PROJECT_CODE %in% c("1","3","5","7")) |>
+  select(CLUTCH_NUMBER)
+
+hatch_df_all <- clutches |> 
+  inner_join(hatch_df_all, by="CLUTCH_NUMBER")|> 
+  droplevels()
 
 m1_df_all <- m1 |> 
   left_join(select(adult, c("MALE", "SL", "MASS")), 
@@ -184,7 +196,8 @@ m3_df_all <- m3 |>
 
 growth_data <- rbind(hatch_df_all, m1_df_all, m2_df_all, m3_df_all) |> 
   mutate(AGE =factor(AGE), 
-         AGE_DAYS =as.numeric(AGE_DAYS)) |> 
+         AGE_DAYS =as.numeric(AGE_DAYS), 
+         MALE =factor(MALE)) |> 
   mutate(AGE =fct_relevel(AGE, c("hatch","1months","2months","2.5months"))) |> 
   drop_na(AGE_DAYS, MASS)
 ``` 
@@ -195,6 +208,17 @@ ggplot(growth_data, aes(x=AGE_DAYS, y=MASS, color=TEMPERATURE)) +
   stat_smooth(method="lm")
 ```
 
+# Descriptive statistics 
+
+# Descriptive statistics 
+
+```{r}
+sample_size_growthrate_mass <- growth_data  |> 
+  group_by(TEMPERATURE, MALE, FEMALE, POPULATION, CLUTCH_NUMBER) |> 
+  summarise(n =n(), .groups = "drop"); sample_size_growthrate_mass
+
+write.csv(sample_size_growthrate_mass, "../../sample_size_growthrate_mass.csv")
+```
 
 # Models
 
@@ -229,7 +253,7 @@ model1a.p2 <- glmmTMB(MASS ~ poly(as.numeric(AGE_DAYS),2, raw = TRUE)*TEMPERATUR
 ## Alternative hypothesis
 
 ```{r}
-model1b.p2 <- glmmTMB(MASS ~ poly(as.numeric(AGE_DAYS),2, raw=TRUE)*TEMPERATURE + scale(DENSITY, center=TRUE) + scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT), center=TRUE) + (1| MALE),                 
+model1b.p2 <- glmmTMB(MASS ~ poly(as.numeric(AGE_DAYS),2)*TEMPERATURE + scale(DENSITY, center=TRUE) + scale(as.numeric(PARENTAL_DAYS_IN_TREATMENT), center=TRUE) + (1| MALE),                 
                    family=gaussian(), 
                    dispformula = ~AGE,
                    data=growth_data)
@@ -265,16 +289,16 @@ check_model(model1b.p2, detrend =FALSE)
 
 ```{r warning=FALSE, message=FALSE}
 model1b.p2 |> ggemmeans(~AGE_DAYS|TEMPERATURE) |> 
-  plot(add.data =TRUE) 
+  plot() 
 
 model1b.p2 |> ggemmeans(~TEMPERATURE) |> 
-  plot(add.data =TRUE)
+  plot()
 
 model1b.p2 |> ggemmeans(~DENSITY) |> 
-  plot(add.data =TRUE)
+  plot()
 
 model1b.p2 |> ggemmeans(~PARENTAL_DAYS_IN_TREATMENT) |> 
-  plot(add.data =TRUE)
+  plot()
 ``` 
 
 # Model investigation {.tabset}
@@ -304,6 +328,46 @@ model1b.p2 |> emtrends(var ="AGE_DAYS", type="response") |> summary()
 model1b.p2 |> emtrends(var ="AGE_DAYS", type="response") |> pairs()|> summary(adjust="tukey")
 ```
 
+```{r eval=FALSE}
+model1b.p2 |> emtrends(var ="AGE_DAYS", type="response", at = list(AGE_DAYS = c(0, 30, 60, 77.4))) |> pairs()|> summary(adjust="tukey") |> filter(contrast %in% c(
+    "AGE_DAYS0 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS0 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    "AGE_DAYS0 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS0 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",  
+    "AGE_DAYS0 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS0 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    
+    "AGE_DAYS30 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS30 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    "AGE_DAYS30 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS30 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",  
+    "AGE_DAYS30 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS30 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    
+    "AGE_DAYS60 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS60 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    "AGE_DAYS60 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS60 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",  
+    "AGE_DAYS60 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS60 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    
+    "AGE_DAYS77.4 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS77.4 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    "AGE_DAYS77.4 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS77.4 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",  
+    "AGE_DAYS77.4 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS77.4 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623"
+    ))
+        
+
+model1b.p2 |> emtrends(var ="AGE_DAYS", type="response", at = list(AGE_DAYS = c(0, 30, 60, 77.4))) |> pairs() |> confint() |> filter(contrast %in% c(
+    "AGE_DAYS0 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS0 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    "AGE_DAYS0 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS0 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",  
+    "AGE_DAYS0 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS0 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    
+    "AGE_DAYS30 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS30 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    "AGE_DAYS30 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS30 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",  
+    "AGE_DAYS30 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS30 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    
+    "AGE_DAYS60 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS60 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    "AGE_DAYS60 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS60 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",  
+    "AGE_DAYS60 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS60 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    
+    "AGE_DAYS77.4 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS77.4 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",
+    "AGE_DAYS77.4 TEMPERATURE27 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS77.4 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623",  
+    "AGE_DAYS77.4 TEMPERATURE28.5 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623 - AGE_DAYS77.4 TEMPERATURE30 DENSITY20.1754481260185 PARENTAL_DAYS_IN_TREATMENT21.6253847546623"
+    )) 
+```
+
+
 # Summary figure 
 
 ```{r}
@@ -313,7 +377,7 @@ growth <- emmeans(model1b.p2, ~ AGE_DAYS*TEMPERATURE,
 growth.df <- as.data.frame(growth)
 
 growth.obs <- drop_na(growth_data, AGE_DAYS, MASS, TEMPERATURE) |> 
-  mutate(Pred =predict(model1b.p2, re.form=NA, type ='response'), 
+  mutate(Pred =predict(model1b.p2, re.form=NULL, type ='response'), 
          Resid =residuals(model1b.p2, type ='response'), 
          Fit =Pred+Resid) 
 
@@ -336,19 +400,19 @@ growth.plot <- ggplot(data = growth.df, aes(x=AGE_DAYS, y=emmean)) +
   stat_smooth(aes(color=TEMPERATURE), 
               method = "lm", 
               formula =y~poly(x ,2, raw=TRUE)) + 
-  geom_ribbon(aes(ymin=lower.CL, ymax=upper.CL, fill=TEMPERATURE), alpha=0.3) + 
+  geom_ribbon(aes(ymin=asymp.LCL, ymax=asymp.UCL, fill=TEMPERATURE), alpha=0.3) + 
   geom_pointrange(data = growth.obs.summarize, aes(x =mean.growth.age, 
                                                   y =mean.growth, 
-                                                  ymin =lower.ci.growth, 
-                                                  ymax =upper.ci.growth, 
+                                                  ymin =mean.growth -sd.growth, 
+                                                  ymax =mean.growth +sd.growth, 
                                                   color = TEMPERATURE), 
                   size=1) +  
   scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
   scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
   #scale_y_continuous(limits = c(0,30), breaks = seq(0,30,by=5))+
-  xlab("AGE (DAYS)") + 
-  ylab("OFFSPRING MASS (g)") + 
-  ggtitle("Offspring growth") +
+  xlab("Age (Days)") + 
+  ylab("Offspring mass (g)") + 
+  ggtitle("Offspring growth - Mass") +
   theme_classic()+theme(legend.position = 'none')
 ```
 
@@ -364,7 +428,7 @@ growth.plot2 <- ggplot(growth.obs2, aes(y=AGE, x=Fit, fill=TEMPERATURE, color=TE
   #scale_x_continuous(limits = c(0.37,35), breaks = seq(0,35,by=5)) +  
   scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
   scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
-  ylab("")+xlab("STANDARD LEGNTH (mm)")+
+  ylab("")+xlab("Mass (g)")+
   theme_classic()+ 
   theme(legend.position = 'none'); growth.plot2
 ```
@@ -381,7 +445,7 @@ hatch.plot <- ggplot(hatching.obs, aes(y=AGE, x=Fit, fill=TEMPERATURE, color=TEM
   #scale_x_continuous(limits = c(0.37,35), breaks = seq(0,35,by=5)) +  
   scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
   scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
-  theme_classic()+ xlab("STANDARD LEGNTH (mm)")+
+  theme_classic()+ xlab("Mass (g)")+ylab("Age")+
   theme(legend.position = 'none'); hatch.plot
 
 ```
@@ -392,6 +456,14 @@ AAAAA
 BBCCC
 "
 growth.plot + hatch.plot + growth.plot2 + plot_layout(design = layout)
+
+growthrate_mass <- growth.plot + hatch.plot + growth.plot2 + plot_layout(design = layout)
+```
+
+```{r echo =TRUE, eval =FALSE}
+pdf("../../Figure_files/SF05.growthrate_mass-fixed.pdf", growth.plot, width=12, height =10)
+growthrate_mass
+dev.off()
 ```
 
 # Coefficient of variance [within-pair-variance]
@@ -457,13 +529,13 @@ Anova(within_var.p2)
 
 ```{r warning=FALSE, message=FALSE}
 within_var.p2 |> ggemmeans(~AGE_DAYS|TEMPERATURE) |> 
-  plot(add.data =TRUE) 
+  plot() 
 
 within_var.p2 |> ggemmeans(~TEMPERATURE) |> 
-  plot(add.data =TRUE)
+  plot()
 
 within_var.p2 |> ggemmeans(~AGE_DAYS) |> 
-  plot(add.data =TRUE)
+  plot()
 
 ```
 

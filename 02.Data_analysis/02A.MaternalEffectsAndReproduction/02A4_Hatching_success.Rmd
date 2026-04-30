@@ -38,6 +38,7 @@ library(patchwork) #aligning plots
 # Import data
 
 ```{r message=FALSE, warning=FALSE}
+setwd("C:/Users/elliott/OneDrive/jc527762/PhD dissertation/Data/Chapter3_Heritability_ARCHIVED")
 egg <- read_csv("import_data/egg_size_data_2022_2023.csv") |> 
   mutate(across(1:14,factor))  |> 
   select(!c(NOTES,...18, IMAGE))   
@@ -103,8 +104,9 @@ m2.5_df <- m2.5_df_all |>
   mutate(MASS_MIDPOINT =coalesce(MASS_MIDPOINT, MASS_MALE), 
          SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE)) 
 
-clutches <- m2.5_df |> 
+clutches <- reprod.data |> filter(PROJECT_CODE %in% c("1","3","5","7")) |>
   select(CLUTCH_NUMBER)
+
 egg_df_all <- egg |> 
   left_join(select(adult, c("MALE", "SL", "MASS")), 
             by ="MALE")  |> 
@@ -122,19 +124,20 @@ egg_df_all <- egg |>
 
 egg_df <- egg_df_all |>
   group_by(CLUTCH_NUMBER) |> 
-  mutate(MEDIAN_EGG_SIZE = median(EGG_SIZE)) |> 
-  drop_na(MEDIAN_EGG_SIZE) |>
+  mutate(MEDIAN_HATCHING_SUCCESS = median(HATCHING_SUCCESS), 
+         MEDIAN_EGG_SIZE = median(EGG_SIZE)) |> 
+  drop_na(MEDIAN_HATCHING_SUCCESS) |>
   ungroup()  |> 
   select(-c("EGG_SIZE","SAMPLE")) |> 
   distinct() |> 
   mutate(MASS_MIDPOINT =coalesce(MASS_MIDPOINT, MASS_MALE), 
          SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE), 
          SL_FEMALE =coalesce(SL_FEMALE, SL_MALE))  # done for two individuals
-  
+
 egg_df <- clutches |> 
   inner_join(egg_df, by="CLUTCH_NUMBER") |> 
-  mutate(REPRODUCTIVE_OUTPUT = MEDIAN_EGG_SIZE * EGG_COUNT) |> 
-  drop_na(REPRODUCTIVE_OUTPUT)
+  drop_na(HATCHING_SUCCESS) |> 
+  droplevels()
 ```
 
 # Exploratory data analysis 
@@ -157,10 +160,19 @@ datasummary(Factor(POPULATION) ~ Factor(TEMPERATURE),
 ```
 
 ```{r}
-datasummary(Factor(TEMPERATURE) ~ EGG_SIZE * (NUnique + mean + median + min + max + sd + Histogram), 
-            data = drop_na(egg_df_all),  
+datasummary(Factor(TEMPERATURE) ~ HATCHING_SUCCESS * (NUnique + mean + median + min + max + sd + Histogram), 
+            data = drop_na(egg_df),  
             fmt = "%.2f")
 ```  
+
+```{r}
+sample_size_hatchsuccess <- egg_df |> 
+  group_by(TEMPERATURE, MALE, FEMALE, POPULATION, CLUTCH_NUMBER, HATCHING_SUCCESS) |> 
+  summarise(n =n(), .groups = "drop"); sample_size_hatchsuccess
+
+write.csv(sample_size_hatchsuccess, "../../sample_size_hatchsuccess.csv")
+```
+
 
 # Fit models [random factors] 
 
@@ -193,12 +205,16 @@ model1a <- glmmTMB(HATCHING_SUCCESS ~ TEMPERATURE + scale(MASS_FEMALE, center=TR
 model1b <- glmmTMB(HATCHING_SUCCESS ~ TEMPERATURE + scale(MASS_FEMALE, center=TRUE) + scale(as.numeric(DAYS_IN_TREATMENT), center=TRUE) + scale(MEDIAN_EGG_SIZE, center=TRUE) +  (1|FEMALE), 
                     family=beta_family(), 
                     data=egg_df)
+
+model1c <- glmmTMB(HATCHING_SUCCESS ~ TEMPERATURE * scale(MASS_FEMALE, center=TRUE) +  (1|FEMALE), 
+                    family=beta_family(), 
+                    data=egg_df)
 ```
 
 ## Model selection
 
 ```{r}
-AICc(model1a, model1b, k=5) 
+AICc(model1a, model1b, model1c, k=5) 
 ```
 
 # Model validation {.tabset}
@@ -218,10 +234,10 @@ model1a |> testResiduals(plot=T)
 
 ```{r}
 model1a |> ggemmeans(~MASS_FEMALE) |> 
-  plot(add.data =TRUE) 
+  plot() 
 
 model1a |> ggemmeans(~TEMPERATURE) |> 
-  plot(add.data =FALSE)
+  plot()
 ``` 
 
 # Model investigation {.tabset}
@@ -268,7 +284,7 @@ egg.emm <- emmeans(model1a, ~ MASS_FEMALE*TEMPERATURE,
 hs.df <- as.data.frame(egg.emm)
 
 hs.obs <- egg_df |> 
-  mutate(Pred =predict(model1a, re.form=NA, type ='response'), 
+  mutate(Pred =predict(model1a, re.form=NULL, type ='response'), 
          Resid =residuals(model1a, type ='response'), 
          Fit =Pred+Resid) 
 
@@ -308,7 +324,7 @@ hs.plot2 <- ggplot(hs.obs.summarize, aes(x=TEMPERATURE, y=mean.hs, color=TEMPERA
               alpha=0.3) +  
   scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
   scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
-  scale_y_continuous(limits = c(0,1), breaks=seq(0, 1, .1))+
+  scale_y_continuous(limits = c(0,1.5), breaks=seq(0, 1.5, .1))+
   theme_classic() + 
   ylab("") + 
   theme(legend.position = c(0.8,0.9), 

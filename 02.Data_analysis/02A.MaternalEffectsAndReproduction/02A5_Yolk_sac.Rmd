@@ -38,6 +38,7 @@ library(patchwork) #aligning plots
 # Import data
 
 ```{r message=FALSE, warning=FALSE}
+setwd("C:/Users/elliott/OneDrive/jc527762/PhD dissertation/Data/Chapter3_Heritability_ARCHIVED")
 yolk <- read_csv("import_data/YolkSac.csv") |> 
   mutate(across(1:14, factor))
 
@@ -105,8 +106,9 @@ m2.5_df <- m2.5_df_all |>
   mutate(MASS_MIDPOINT =coalesce(MASS_MIDPOINT, MASS_MALE), 
          SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE)) 
 
-clutches <- m2.5_df |> 
+clutches <- reprod.data |> filter(PROJECT_CODE %in% c("1","3","5","7")) |>
   select(CLUTCH_NUMBER)
+
 egg_df_all <- egg |> 
   left_join(select(adult, c("MALE", "SL", "MASS")), 
             by ="MALE")  |> 
@@ -202,6 +204,15 @@ datasummary(Factor(TEMPERATURE) ~ YOLK_SAC * (NUnique + mean + median + min + ma
             data = yolk_df_all,  
             fmt = "%.2f")
 ``` 
+
+```{r}
+sample_size_yolksac <- yolk_df_all |> 
+  group_by(TEMPERATURE, MALE, FEMALE, POPULATION, CLUTCH_NUMBER) |> 
+  summarise(n =n(), .groups = "drop"); sample_size_yolksac
+
+write.csv(sample_size_yolksac, "../../sample_size_yolksac.csv")
+```
+
 
 # Fit models [random factors] 
 
@@ -316,6 +327,16 @@ model1b |> r2_nakagawa()
 
 ## {-}
 
+# Post-hoc analysis 
+
+```{r}
+model1b |> emmeans(~TEMPERATURE, type ="response")
+model1b |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary()  
+
+yolk.emmeans.df <- model1b |> emmeans(~TEMPERATURE, type ="response") |> as.data.frame()
+save(yolk.emmeans.df, file="Figure_files/yolk.emmeans.RData")
+```
+
 # Summary figure 
 
 ```{r warning=FALSE}
@@ -326,7 +347,7 @@ egg.emm <- emmeans(model1b, ~ MASS_FEMALE*TEMPERATURE,
 yolk.df <- as.data.frame(egg.emm)
 
 yolk.obs <- yolk_df_all |> 
-  mutate(Pred =predict(model1b, re.form=NA, type ='response'), 
+  mutate(Pred =predict(model1b, re.form=NULL, type ='response'), 
          Resid =residuals(model1b, type ='response'), 
          Fit =Pred+Resid) 
 
@@ -363,8 +384,8 @@ yolksize.plot <- ggplot(data = yolk.df, aes(x=MASS_FEMALE, y=response)) +
                                ymin=lower.CL, ymax=upper.CL, fill=TEMPERATURE), alpha=0.5) +
   geom_pointrange(data = yolk.obs.summarize, aes(x =mean.mass.female, 
                                                   y =mean.yolksize, 
-                                                  ymin =lower.ci.yolksize, 
-                                                  ymax =upper.ci.yolksize, 
+                                                  ymin =mean.yolksize -sd.yolksize, 
+                                                  ymax =mean.yolksize +sd.yolksize, 
                                                   color = TEMPERATURE))  +  
   scale_color_manual(values = c("#69d7d8","#ff9c56", "#903146")) + 
   scale_fill_manual(values =c("#69d7d8","#ff9c56", "#903146")) +
@@ -396,24 +417,9 @@ yolksize.plot2 <- ggplot(yolk.obs.summarize, aes(x=TEMPERATURE, y=mean.yolksize,
 yolk.plot.final <-yolksize.plot + yolksize.plot2 + 
   plot_layout(guides = "collect" & theme(legend.position = "bottom"), 
               widths = c(2,1)); yolk.plot.final
-```
 
-```{r eval=FALSE, echo =FALSE}
-yolksize.density <- ggdensity(yolk.obs, x="Fit", 
-          color = "TEMPERATURE", 
-          fill = "TEMPERATURE", 
-          rug=TRUE, 
-          add="median", 
-          alpha=0.5,
-          palette=c("#69d7d8","#ff9c56", "#903146")) + 
-  scale_x_continuous(limits = c(0,0.025), breaks=seq(0, 0.025, 0.05)) +
-          clean_theme() + rotate() + 
-  theme(legend.position = c(0.7,0.9), 
-                                legend.box.background = element_rect(color = "black", size=1.5))
-
-yolksize.plot.final <-yolksize.plot + yolksize.density + 
-  plot_layout(guides = "collect" & theme(legend.position = "bottom"), 
-              widths = c(2,1)); yolksize.plot.final
+#save(yolk.obs.summarize, file="Figure_files/yolk.obs.summarize.RData")
+#save(yolk.obs.summarize2, file="Figure_files/yolk.obs.summarize2.RData")
 ```
 
 # slopes
@@ -443,7 +449,7 @@ df.results.yolk <- yolk.obs.summarize |>
   inner_join(add.df, by="TEMPERATURE"); df.results.yolk
 ``` 
 
-# Within parental variation  
+# variation of clutches 
 
 ```{r}
 cv_within <- yolk.obs |> 
@@ -458,7 +464,26 @@ cv_within <- yolk.obs |>
 within_var <- aov(CV ~ TEMPERATURE, 
                   data=cv_within) 
 summary(within_var) 
+emmeans(within_var, pairwise~TEMPERATURE) |> summary()
+```
+
+# Within parent variation
+```{r}
+cv_within <- yolk.obs |> 
+  group_by(FEMALE) |> 
+  mutate(mean_value =mean(Fit), 
+         sd_value =sd(Fit), 
+         CV =(sd_value/mean_value) * 100) |>
+  ungroup() |> 
+  select(-c("SAMPLE","Pred","Fit","Resid")) |> 
+  distinct(FEMALE, .keep_all=TRUE) 
+
+within_var <- aov(CV ~ TEMPERATURE, 
+                  data=cv_within) 
+summary(within_var) 
+
 emmeans(within_var, ~TEMPERATURE) 
+
 emmeans(within_var, ~TEMPERATURE, type="response") |> pairs() |> summary()
 
 cv_within_summ <- cv_within |> 
@@ -476,7 +501,9 @@ cv_within_summ <- cv_within |>
   arrange(TEMPERATURE); cv_within_summ
 ```
 
-# variation among clutches
+
+# Variation among clutches 
+
 ```{r}
 cv_among <- cv_within |> 
   group_by(TEMPERATURE) |> 
@@ -497,4 +524,5 @@ cv_among2$cv_among[3] =log(cv_among$cv_among[1]/cv_among$cv_among[2])
 
 cv_among; cv_among2
 ```
+
 

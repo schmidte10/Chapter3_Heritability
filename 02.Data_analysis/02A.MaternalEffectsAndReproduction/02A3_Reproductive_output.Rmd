@@ -38,6 +38,7 @@ library(patchwork) #aligning plots
 # Import data
 
 ```{r message=FALSE, warning=FALSE}
+setwd("C:/Users/elliott/OneDrive/jc527762/PhD dissertation/Data/Chapter3_Heritability_ARCHIVED")
 egg <- read_csv("import_data/egg_size_data_2022_2023.csv") |> 
   mutate(across(1:14,factor))  |> 
   select(!c(NOTES,...18, IMAGE))   
@@ -103,8 +104,9 @@ m2.5_df <- m2.5_df_all |>
   mutate(MASS_MIDPOINT =coalesce(MASS_MIDPOINT, MASS_MALE), 
          SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE)) 
 
-clutches <- m2.5_df |> 
+clutches <- reprod.data |> filter(PROJECT_CODE %in% c("1","3","5","7")) |>
   select(CLUTCH_NUMBER)
+
 egg_df_all <- egg |> 
   left_join(select(adult, c("MALE", "SL", "MASS")), 
             by ="MALE")  |> 
@@ -134,7 +136,8 @@ egg_df <- egg_df_all |>
 egg_df <- clutches |> 
   inner_join(egg_df, by="CLUTCH_NUMBER") |> 
   mutate(REPRODUCTIVE_OUTPUT = MEDIAN_EGG_SIZE * EGG_COUNT) |> 
-  drop_na(REPRODUCTIVE_OUTPUT)
+  drop_na(REPRODUCTIVE_OUTPUT) |> 
+  droplevels()
 ```
 
 # Exploratory data analysis 
@@ -180,6 +183,15 @@ datasummary(Factor(TEMPERATURE) ~ EGG_SIZE * (NUnique + mean + median + min + ma
             data = drop_na(egg_df_all),  
             fmt = "%.2f")
 ```  
+
+```{r}
+sample_size_reprod_output <- egg_df |> 
+  group_by(TEMPERATURE, MALE, FEMALE, POPULATION, CLUTCH_NUMBER) |> 
+  summarise(n =n(), .groups = "drop"); sample_size_reprod_output
+
+write.csv(sample_size_reprod_output, "../../sample_size_reprod_output.csv")
+```
+
 
 # Fit models [random factors] 
 
@@ -255,13 +267,13 @@ check_model(model1a, detrend=FALSE)
 
 ```{r}
 model1a |> ggemmeans(~MASS_FEMALE) |> 
-  plot(add.data =TRUE) 
+  plot() 
 
 model1a |> ggemmeans(~TEMPERATURE) |> 
-  plot(add.data =FALSE)
+  plot()
 
 model1a |> ggemmeans(~MASS_FEMALE|TEMPERATURE) |> 
-  plot(add.data =TRUE)
+  plot()
 ``` 
 
 # Model investigation {.tabset}
@@ -322,7 +334,7 @@ routput.obs.summarize <-  routput.obs |>
 routput.plot <- ggplot(data = routput.df, aes(x=MASS_FEMALE, y=emmean)) + 
   stat_smooth(aes(color=TEMPERATURE), 
               method = "lm") + 
-  geom_ribbon(aes(ymin=lower.CL, ymax=upper.CL, fill=TEMPERATURE), alpha=0.5) +
+  geom_ribbon(aes(ymin=asymp.LCL, ymax=asymp.UCL, fill=TEMPERATURE), alpha=0.5) +
   geom_pointrange(data = routput.obs.summarize, aes(x =mean.mass.female, 
                                                   y =mean.routput, 
                                                   ymin =min.routput, 

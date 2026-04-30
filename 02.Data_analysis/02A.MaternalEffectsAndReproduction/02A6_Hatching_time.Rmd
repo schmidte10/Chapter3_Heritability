@@ -38,6 +38,7 @@ library(patchwork) #aligning plots
 # Import data
 
 ```{r message=FALSE, warning=FALSE}
+setwd("C:/Users/elliott/OneDrive/jc527762/PhD dissertation/Data/Chapter3_Heritability_ARCHIVED")
 egg <- read_csv("import_data/egg_size_data_2022_2023.csv") |> 
   mutate(across(1:14,factor))  |> 
   select(!c(NOTES,...18, IMAGE)) 
@@ -98,8 +99,9 @@ m2.5_df <- m2.5_df_all |>
   select(-c("STANDARD_LENGTH","MASS.x")) |> 
   distinct()
 
-clutches <- m2.5_df |> 
+clutches <- reprod.data |> filter(PROJECT_CODE %in% c("1","3","5","7")) |>
   select(CLUTCH_NUMBER)
+
 egg_df_all <- egg |> 
   left_join(select(adult, c("MALE", "SL", "MASS")), 
             by ="MALE")  |> 
@@ -117,8 +119,8 @@ egg_df_all <- egg |>
 
 egg_df <- egg_df_all |>
   group_by(CLUTCH_NUMBER) |> 
-  mutate(MEDIAN_EGG_SIZE = median(EGG_SIZE)) |> 
-  drop_na(MEDIAN_EGG_SIZE) |>
+  mutate(MEDIAN_HATCHING_TIME = median(HATCHING_TIME)) |> 
+  drop_na(MEDIAN_HATCHING_TIME) |>
   ungroup()  |> 
   select(-c("EGG_SIZE","SAMPLE")) |> 
   distinct() |> 
@@ -128,7 +130,12 @@ egg_df <- egg_df_all |>
   
 egg_df <- clutches |> 
   inner_join(egg_df, by="CLUTCH_NUMBER") |> 
-  drop_na(HATCHING_TIME) 
+  drop_na(HATCHING_TIME) |> 
+  droplevels()
+
+egg_df_all <- clutches |> 
+  inner_join(egg_df_all, by="CLUTCH_NUMBER") |> 
+  droplevels()
 ```
 
 # Exploratory data analysis 
@@ -150,10 +157,19 @@ plot2 <- ggplot(egg_df, aes(x=MASS_FEMALE, y=HATCHING_TIME, color=TEMPERATURE, f
 # Descriptive statistics 
 
 ```{r}
-datasummary(Factor(TEMPERATURE) ~ Factor(HATCHING_TIME), 
+datasummary(Factor(POPULATION) ~ Factor(TEMPERATURE), 
             data=egg_df, 
             fmt = "%.0f") 
 ```
+
+```{r}
+sample_size_hatchtime <- egg_df |> 
+  group_by(TEMPERATURE, MALE, FEMALE, POPULATION, CLUTCH_NUMBER, HATCHING_TIME) |> 
+  summarise(n =n(), .groups = "drop"); sample_size_hatchtime
+
+write.csv(sample_size_hatchtime, "../../sample_size_hatchtime.csv")
+```
+
 
 # Fit models [random factors] 
 
@@ -197,7 +213,7 @@ performance::check_model(model1a, detrend=FALSE)
 
 ```{r}
 model1a |> ggemmeans(~TEMPERATURE) |> 
-  plot(add.data =FALSE)
+  plot()
 ```
 
 # Model investigation {.tabset} 
@@ -239,7 +255,7 @@ model1a |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary()
 egg_df <- egg_df |> drop_na(HATCHING_TIME)
 
 time.obs <- egg_df |> 
-  mutate(Pred =predict(model1a, re.form=NA, type ='response'), 
+  mutate(Pred =predict(model1a, re.form=NULL, type ='response'), 
          Resid =residuals(model1a, type ='response'), 
          Fit =Pred+Resid) 
 

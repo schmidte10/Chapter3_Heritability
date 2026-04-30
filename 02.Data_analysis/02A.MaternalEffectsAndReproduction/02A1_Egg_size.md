@@ -1,7 +1,7 @@
 ---
 title: "02A. Maternal Effects and Reproduction: Egg size"
 author: "Elliott Schmidt"
-date: "2024-12-16"
+date: "2026-04-11"
 output: 
   html_document: 
     keep_md: yes
@@ -36,10 +36,6 @@ documentclass: article
   addKlippy('left', 'top', 'auto', '1', 'Copy code', 'Copied!');
 </script>
 ```
-
-# Scenario 
-
-Understanding species responses to climate change is inherently complex as organisms are constantly responding to changes in their environment via natural selection. However, for species to retain their capacity to respond to climate via natural selection, heritability of traits as well as phenotypic variation in fitness-related traits must be retained. By investigating shifts in heritability and phenotypic variation under elevated temperatures, an understanding of species ability to respond to climate change can be understood. Yet, for many species, shifts in adaptive potential and phenotypic variance are not incorporated into models that aim to predict species responses to climate change. Within this study a coral reef fish, _Acanthochromis polyacanthus_, was used to elucidate how heritability and phenotypic variation may influence species responses to warming. Adult breeding pairs and offspring were exposed to temperatures of **27 °C, 28.5 °C, and 30 °C**. Results below pertain to measured egg size from breeding pairs held at different experimental temperature treatments. 
 
 # Location 
 
@@ -78,12 +74,14 @@ library(patchwork) #aligning plots
 
 
 ``` r
+setwd("C:/Users/elliott/OneDrive/jc527762/PhD dissertation/Data/Chapter3_Heritability_ARCHIVED")
 egg <- read_csv("import_data/egg_size_data_2022_2023.csv") |> 
   mutate(across(1:14,factor))  |> 
   select(!c(NOTES,...18, IMAGE))   
 
 reprod.data <- read_csv("import_data/clutch_data_2022_2023.csv") |> 
-  mutate(across(c(1:7,16,23), factor))  
+  mutate(across(c(1:7,16,23), factor))  |> 
+  mutate(PROJECT_CODE =factor(PROJECT_CODE))
   
 
 m2.5 <- read_csv("import_data/2-5_month_size_data_2022_2023.csv") |> 
@@ -134,7 +132,7 @@ m2.5_df_all <- m2.5 |>
   mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
          MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2) 
 
-m2.5_df <- m2.5_df_all |>
+m2.5_df <- m2.5_df_all |> drop_na(STANDARD_LENGTH) |>
   group_by(CLUTCH_NUMBER) |> 
   mutate(MEDIAN_STANDARD_LENGTH = median(STANDARD_LENGTH)) |>
   drop_na(MEDIAN_STANDARD_LENGTH) |>
@@ -144,8 +142,9 @@ m2.5_df <- m2.5_df_all |>
   mutate(MASS_MIDPOINT =coalesce(MASS_MIDPOINT, MASS_MALE), 
          SL_MIDPOINT =coalesce(SL_MIDPOINT, SL_MALE)) 
 
-clutches <- m2.5_df |> 
+clutches <- reprod.data |> filter(PROJECT_CODE %in% c("1","3","5","7")) |>
   select(CLUTCH_NUMBER)
+
 egg_df_all <- egg |> 
   left_join(select(adult, c("MALE", "SL", "MASS")), 
             by ="MALE")  |> 
@@ -159,7 +158,8 @@ egg_df_all <- egg |>
          .keep ="unused") |> 
   mutate(SL_MIDPOINT = (SL_MALE+SL_FEMALE)/2, 
          MASS_MIDPOINT = (MASS_MALE+MASS_FEMALE)/2) |> 
-  left_join(select(reprod.data, c("CLUTCH_NUMBER","EGG_COUNT","HATCHING_SUCCESS")), by="CLUTCH_NUMBER")
+  left_join(select(reprod.data, c("CLUTCH_NUMBER","EGG_COUNT","HATCHING_SUCCESS")), by="CLUTCH_NUMBER") 
+
 
 egg_df <- egg_df_all |>
   group_by(CLUTCH_NUMBER) |> 
@@ -173,7 +173,10 @@ egg_df <- egg_df_all |>
          SL_FEMALE =coalesce(SL_FEMALE, SL_MALE))  # done for two individuals
   
 egg_df <- clutches |> 
-  inner_join(egg_df, by="CLUTCH_NUMBER") 
+  inner_join(egg_df, by="CLUTCH_NUMBER")  
+
+egg_df_all <- clutches |> 
+  inner_join(egg_df_all, by="CLUTCH_NUMBER") 
 ```
 
 # Exploratory data analysis 
@@ -216,16 +219,95 @@ ggarrange(plot1, plot2,
 table1 <- datasummary(Factor(POPULATION) + 1 ~ Factor(TEMPERATURE), 
             data=droplevels(egg_df),
             fmt = "%.0f") 
-print(table1@table_dataframe)
+table1
 ```
 
-```
-##       POPULATION 27 28.5 30
-## 1 Arlington Reef 7    6  8 
-## 2 Pretty Patches 4    4  3 
-## 3 Sudbury Reef   3    2  2 
-## 4 Vlassof Cay    3    2  3 
-## 5 All            17   14 16
+```{=html}
+<!-- preamble start -->
+
+    <script src="https://cdn.jsdelivr.net/gh/vincentarelbundock/tinytable@main/inst/tinytable.js"></script>
+
+    <script>
+      // Create table-specific functions using external factory
+      const tableFns_shhixp8d9rbqj78wllmk = TinyTable.createTableFunctions("tinytable_shhixp8d9rbqj78wllmk");
+      // tinytable span after
+      window.addEventListener('load', function () {
+          var cellsToStyle = [
+            // tinytable style arrays after
+          { positions: [ { i: '5', j: 2 }, { i: '5', j: 3 }, { i: '5', j: 4 } ], css_id: 'tinytable_css_brb1fddyepn7pedsovqm',}, 
+          { positions: [ { i: '1', j: 2 }, { i: '2', j: 2 }, { i: '3', j: 2 }, { i: '4', j: 2 }, { i: '1', j: 3 }, { i: '2', j: 3 }, { i: '3', j: 3 }, { i: '4', j: 3 }, { i: '1', j: 4 }, { i: '2', j: 4 }, { i: '3', j: 4 }, { i: '4', j: 4 } ], css_id: 'tinytable_css_6j335db5360d7lhvlvy6',}, 
+          { positions: [ { i: '0', j: 2 }, { i: '0', j: 3 }, { i: '0', j: 4 } ], css_id: 'tinytable_css_2t4jwroncet7lxrm4t5t',}, 
+          { positions: [ { i: '5', j: 1 } ], css_id: 'tinytable_css_jifkog9wba0uu5y9ig3j',}, 
+          { positions: [ { i: '1', j: 1 }, { i: '2', j: 1 }, { i: '3', j: 1 }, { i: '4', j: 1 } ], css_id: 'tinytable_css_jq2zdr8gwheifg9y9j4m',}, 
+          { positions: [ { i: '0', j: 1 } ], css_id: 'tinytable_css_5gxfkphwsiipqucqfhgp',}, 
+          ];
+
+          // Loop over the arrays to style the cells
+          cellsToStyle.forEach(function (group) {
+              group.positions.forEach(function (cell) {
+                  tableFns_shhixp8d9rbqj78wllmk.styleCell(cell.i, cell.j, group.css_id);
+              });
+          });
+      });
+    </script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/vincentarelbundock/tinytable@main/inst/tinytable.css">
+    <style>
+    /* tinytable css entries after */
+    #tinytable_shhixp8d9rbqj78wllmk td.tinytable_css_brb1fddyepn7pedsovqm, #tinytable_shhixp8d9rbqj78wllmk th.tinytable_css_brb1fddyepn7pedsovqm {  position: relative; --border-bottom: 1; --border-left: 0; --border-right: 0; --border-top: 0; --line-color-bottom: var(--tt-line-color); --line-color-left: var(--tt-line-color); --line-color-right: var(--tt-line-color); --line-color-top: var(--tt-line-color); --line-width-bottom: 0.08em; --line-width-left: 0.1em; --line-width-right: 0.1em; --line-width-top: 0.1em; --trim-bottom-left: 0%; --trim-bottom-right: 0%; --trim-left-bottom: 0%; --trim-left-top: 0%; --trim-right-bottom: 0%; --trim-right-top: 0%; --trim-top-left: 0%; --trim-top-right: 0%; ; text-align: right }
+    #tinytable_shhixp8d9rbqj78wllmk td.tinytable_css_6j335db5360d7lhvlvy6, #tinytable_shhixp8d9rbqj78wllmk th.tinytable_css_6j335db5360d7lhvlvy6 { text-align: right }
+    #tinytable_shhixp8d9rbqj78wllmk td.tinytable_css_2t4jwroncet7lxrm4t5t, #tinytable_shhixp8d9rbqj78wllmk th.tinytable_css_2t4jwroncet7lxrm4t5t {  position: relative; --border-bottom: 1; --border-left: 0; --border-right: 0; --border-top: 1; --line-color-bottom: var(--tt-line-color); --line-color-left: var(--tt-line-color); --line-color-right: var(--tt-line-color); --line-color-top: var(--tt-line-color); --line-width-bottom: 0.05em; --line-width-left: 0.1em; --line-width-right: 0.1em; --line-width-top: 0.08em; --trim-bottom-left: 0%; --trim-bottom-right: 0%; --trim-left-bottom: 0%; --trim-left-top: 0%; --trim-right-bottom: 0%; --trim-right-top: 0%; --trim-top-left: 0%; --trim-top-right: 0%; ; text-align: right }
+    #tinytable_shhixp8d9rbqj78wllmk td.tinytable_css_jifkog9wba0uu5y9ig3j, #tinytable_shhixp8d9rbqj78wllmk th.tinytable_css_jifkog9wba0uu5y9ig3j {  position: relative; --border-bottom: 1; --border-left: 0; --border-right: 0; --border-top: 0; --line-color-bottom: var(--tt-line-color); --line-color-left: var(--tt-line-color); --line-color-right: var(--tt-line-color); --line-color-top: var(--tt-line-color); --line-width-bottom: 0.08em; --line-width-left: 0.1em; --line-width-right: 0.1em; --line-width-top: 0.1em; --trim-bottom-left: 0%; --trim-bottom-right: 0%; --trim-left-bottom: 0%; --trim-left-top: 0%; --trim-right-bottom: 0%; --trim-right-top: 0%; --trim-top-left: 0%; --trim-top-right: 0%; ; text-align: left }
+    #tinytable_shhixp8d9rbqj78wllmk td.tinytable_css_jq2zdr8gwheifg9y9j4m, #tinytable_shhixp8d9rbqj78wllmk th.tinytable_css_jq2zdr8gwheifg9y9j4m { text-align: left }
+    #tinytable_shhixp8d9rbqj78wllmk td.tinytable_css_5gxfkphwsiipqucqfhgp, #tinytable_shhixp8d9rbqj78wllmk th.tinytable_css_5gxfkphwsiipqucqfhgp {  position: relative; --border-bottom: 1; --border-left: 0; --border-right: 0; --border-top: 1; --line-color-bottom: var(--tt-line-color); --line-color-left: var(--tt-line-color); --line-color-right: var(--tt-line-color); --line-color-top: var(--tt-line-color); --line-width-bottom: 0.05em; --line-width-left: 0.1em; --line-width-right: 0.1em; --line-width-top: 0.08em; --trim-bottom-left: 0%; --trim-bottom-right: 0%; --trim-left-bottom: 0%; --trim-left-top: 0%; --trim-right-bottom: 0%; --trim-right-top: 0%; --trim-top-left: 0%; --trim-top-right: 0%; ; text-align: left }
+    </style>
+    <div class="container">
+      <table class="tinytable" id="tinytable_shhixp8d9rbqj78wllmk" style="width: auto; margin-left: auto; margin-right: auto;" data-quarto-disable-processing='true'>
+        
+        <thead>
+              <tr>
+                <th scope="col" data-row="0" data-col="1">POPULATION</th>
+                <th scope="col" data-row="0" data-col="2">27</th>
+                <th scope="col" data-row="0" data-col="3">28.5</th>
+                <th scope="col" data-row="0" data-col="4">30</th>
+              </tr>
+        </thead>
+        
+        <tbody>
+                <tr>
+                  <td data-row="1" data-col="1">Arlington Reef</td>
+                  <td data-row="1" data-col="2">9</td>
+                  <td data-row="1" data-col="3">6</td>
+                  <td data-row="1" data-col="4">8</td>
+                </tr>
+                <tr>
+                  <td data-row="2" data-col="1">Pretty Patches</td>
+                  <td data-row="2" data-col="2">4</td>
+                  <td data-row="2" data-col="3">3</td>
+                  <td data-row="2" data-col="4">6</td>
+                </tr>
+                <tr>
+                  <td data-row="3" data-col="1">Sudbury Reef</td>
+                  <td data-row="3" data-col="2">4</td>
+                  <td data-row="3" data-col="3">2</td>
+                  <td data-row="3" data-col="4">3</td>
+                </tr>
+                <tr>
+                  <td data-row="4" data-col="1">Vlassof Cay</td>
+                  <td data-row="4" data-col="2">4</td>
+                  <td data-row="4" data-col="3">2</td>
+                  <td data-row="4" data-col="4">3</td>
+                </tr>
+                <tr>
+                  <td data-row="5" data-col="1">All</td>
+                  <td data-row="5" data-col="2">21</td>
+                  <td data-row="5" data-col="3">13</td>
+                  <td data-row="5" data-col="4">20</td>
+                </tr>
+        </tbody>
+      </table>
+    </div>
+<!-- hack to avoid NA insertion in last line -->
 ```
 
 
@@ -233,21 +315,118 @@ print(table1@table_dataframe)
 table2 <- datasummary(Factor(TEMPERATURE) ~ EGG_SIZE * (NUnique + mean + median + min + max + sd + Histogram), 
             data = drop_na(egg_df_all),  
             fmt = "%.2f") 
-print(table2)
+table2
 ```
 
+```{=html}
+<!-- preamble start -->
+
+    <script src="https://cdn.jsdelivr.net/gh/vincentarelbundock/tinytable@main/inst/tinytable.js"></script>
+
+    <script>
+      // Create table-specific functions using external factory
+      const tableFns_ar7hyhp1bhn0j0um3hmt = TinyTable.createTableFunctions("tinytable_ar7hyhp1bhn0j0um3hmt");
+      // tinytable span after
+      window.addEventListener('load', function () {
+          var cellsToStyle = [
+            // tinytable style arrays after
+          { positions: [ { i: '3', j: 2 }, { i: '3', j: 3 }, { i: '3', j: 4 }, { i: '3', j: 5 }, { i: '3', j: 6 }, { i: '3', j: 7 }, { i: '3', j: 8 } ], css_id: 'tinytable_css_rg5jiae6jkpg6pqb8k30',}, 
+          { positions: [ { i: '1', j: 2 }, { i: '2', j: 2 }, { i: '1', j: 3 }, { i: '2', j: 3 }, { i: '1', j: 4 }, { i: '2', j: 4 }, { i: '1', j: 5 }, { i: '2', j: 5 }, { i: '1', j: 6 }, { i: '2', j: 6 }, { i: '1', j: 7 }, { i: '2', j: 7 }, { i: '1', j: 8 }, { i: '2', j: 8 } ], css_id: 'tinytable_css_l8zu23a186hezfcih63w',}, 
+          { positions: [ { i: '0', j: 2 }, { i: '0', j: 3 }, { i: '0', j: 4 }, { i: '0', j: 5 }, { i: '0', j: 6 }, { i: '0', j: 7 }, { i: '0', j: 8 } ], css_id: 'tinytable_css_0ulf85vpiwj9wg7s7ewt',}, 
+          { positions: [ { i: '3', j: 1 } ], css_id: 'tinytable_css_dymt1cjhyrwnz0xddm8y',}, 
+          { positions: [ { i: '1', j: 1 }, { i: '2', j: 1 } ], css_id: 'tinytable_css_vcbxgaeqdkln86lxt4u6',}, 
+          { positions: [ { i: '0', j: 1 } ], css_id: 'tinytable_css_1bdvjc1t0tsex37ok09b',}, 
+          ];
+
+          // Loop over the arrays to style the cells
+          cellsToStyle.forEach(function (group) {
+              group.positions.forEach(function (cell) {
+                  tableFns_ar7hyhp1bhn0j0um3hmt.styleCell(cell.i, cell.j, group.css_id);
+              });
+          });
+      });
+    </script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/vincentarelbundock/tinytable@main/inst/tinytable.css">
+    <style>
+    /* tinytable css entries after */
+    #tinytable_ar7hyhp1bhn0j0um3hmt td.tinytable_css_rg5jiae6jkpg6pqb8k30, #tinytable_ar7hyhp1bhn0j0um3hmt th.tinytable_css_rg5jiae6jkpg6pqb8k30 {  position: relative; --border-bottom: 1; --border-left: 0; --border-right: 0; --border-top: 0; --line-color-bottom: var(--tt-line-color); --line-color-left: var(--tt-line-color); --line-color-right: var(--tt-line-color); --line-color-top: var(--tt-line-color); --line-width-bottom: 0.08em; --line-width-left: 0.1em; --line-width-right: 0.1em; --line-width-top: 0.1em; --trim-bottom-left: 0%; --trim-bottom-right: 0%; --trim-left-bottom: 0%; --trim-left-top: 0%; --trim-right-bottom: 0%; --trim-right-top: 0%; --trim-top-left: 0%; --trim-top-right: 0%; ; text-align: right }
+    #tinytable_ar7hyhp1bhn0j0um3hmt td.tinytable_css_l8zu23a186hezfcih63w, #tinytable_ar7hyhp1bhn0j0um3hmt th.tinytable_css_l8zu23a186hezfcih63w { text-align: right }
+    #tinytable_ar7hyhp1bhn0j0um3hmt td.tinytable_css_0ulf85vpiwj9wg7s7ewt, #tinytable_ar7hyhp1bhn0j0um3hmt th.tinytable_css_0ulf85vpiwj9wg7s7ewt {  position: relative; --border-bottom: 1; --border-left: 0; --border-right: 0; --border-top: 1; --line-color-bottom: var(--tt-line-color); --line-color-left: var(--tt-line-color); --line-color-right: var(--tt-line-color); --line-color-top: var(--tt-line-color); --line-width-bottom: 0.05em; --line-width-left: 0.1em; --line-width-right: 0.1em; --line-width-top: 0.08em; --trim-bottom-left: 0%; --trim-bottom-right: 0%; --trim-left-bottom: 0%; --trim-left-top: 0%; --trim-right-bottom: 0%; --trim-right-top: 0%; --trim-top-left: 0%; --trim-top-right: 0%; ; text-align: right }
+    #tinytable_ar7hyhp1bhn0j0um3hmt td.tinytable_css_dymt1cjhyrwnz0xddm8y, #tinytable_ar7hyhp1bhn0j0um3hmt th.tinytable_css_dymt1cjhyrwnz0xddm8y {  position: relative; --border-bottom: 1; --border-left: 0; --border-right: 0; --border-top: 0; --line-color-bottom: var(--tt-line-color); --line-color-left: var(--tt-line-color); --line-color-right: var(--tt-line-color); --line-color-top: var(--tt-line-color); --line-width-bottom: 0.08em; --line-width-left: 0.1em; --line-width-right: 0.1em; --line-width-top: 0.1em; --trim-bottom-left: 0%; --trim-bottom-right: 0%; --trim-left-bottom: 0%; --trim-left-top: 0%; --trim-right-bottom: 0%; --trim-right-top: 0%; --trim-top-left: 0%; --trim-top-right: 0%; ; text-align: left }
+    #tinytable_ar7hyhp1bhn0j0um3hmt td.tinytable_css_vcbxgaeqdkln86lxt4u6, #tinytable_ar7hyhp1bhn0j0um3hmt th.tinytable_css_vcbxgaeqdkln86lxt4u6 { text-align: left }
+    #tinytable_ar7hyhp1bhn0j0um3hmt td.tinytable_css_1bdvjc1t0tsex37ok09b, #tinytable_ar7hyhp1bhn0j0um3hmt th.tinytable_css_1bdvjc1t0tsex37ok09b {  position: relative; --border-bottom: 1; --border-left: 0; --border-right: 0; --border-top: 1; --line-color-bottom: var(--tt-line-color); --line-color-left: var(--tt-line-color); --line-color-right: var(--tt-line-color); --line-color-top: var(--tt-line-color); --line-width-bottom: 0.05em; --line-width-left: 0.1em; --line-width-right: 0.1em; --line-width-top: 0.08em; --trim-bottom-left: 0%; --trim-bottom-right: 0%; --trim-left-bottom: 0%; --trim-left-top: 0%; --trim-right-bottom: 0%; --trim-right-top: 0%; --trim-top-left: 0%; --trim-top-right: 0%; ; text-align: left }
+    </style>
+    <div class="container">
+      <table class="tinytable" id="tinytable_ar7hyhp1bhn0j0um3hmt" style="width: auto; margin-left: auto; margin-right: auto;" data-quarto-disable-processing='true'>
+        
+        <thead>
+              <tr>
+                <th scope="col" data-row="0" data-col="1">TEMPERATURE</th>
+                <th scope="col" data-row="0" data-col="2">NUnique</th>
+                <th scope="col" data-row="0" data-col="3">mean</th>
+                <th scope="col" data-row="0" data-col="4">median</th>
+                <th scope="col" data-row="0" data-col="5">min</th>
+                <th scope="col" data-row="0" data-col="6">max</th>
+                <th scope="col" data-row="0" data-col="7">sd</th>
+                <th scope="col" data-row="0" data-col="8">Histogram</th>
+              </tr>
+        </thead>
+        
+        <tbody>
+                <tr>
+                  <td data-row="1" data-col="1">27</td>
+                  <td data-row="1" data-col="2">33</td>
+                  <td data-row="1" data-col="3">0.05</td>
+                  <td data-row="1" data-col="4">0.05</td>
+                  <td data-row="1" data-col="5">0.04</td>
+                  <td data-row="1" data-col="6">0.08</td>
+                  <td data-row="1" data-col="7">0.01</td>
+                  <td data-row="1" data-col="8">▁▂▄▇▅▃▂▁</td>
+                </tr>
+                <tr>
+                  <td data-row="2" data-col="1">28.5</td>
+                  <td data-row="2" data-col="2">29</td>
+                  <td data-row="2" data-col="3">0.05</td>
+                  <td data-row="2" data-col="4">0.05</td>
+                  <td data-row="2" data-col="5">0.03</td>
+                  <td data-row="2" data-col="6">0.06</td>
+                  <td data-row="2" data-col="7">0.01</td>
+                  <td data-row="2" data-col="8">▂▅▅▆▇▆▆▃▁▁</td>
+                </tr>
+                <tr>
+                  <td data-row="3" data-col="1">30</td>
+                  <td data-row="3" data-col="2">24</td>
+                  <td data-row="3" data-col="3">0.04</td>
+                  <td data-row="3" data-col="4">0.04</td>
+                  <td data-row="3" data-col="5">0.04</td>
+                  <td data-row="3" data-col="6">0.06</td>
+                  <td data-row="3" data-col="7">0.01</td>
+                  <td data-row="3" data-col="8">▂▃▄▇▃▃▃▂▁▁</td>
+                </tr>
+        </tbody>
+      </table>
+    </div>
+<!-- hack to avoid NA insertion in last line -->
 ```
-## 
-## +-------------+---------+------+--------+------+------+------+------------+
-## | TEMPERATURE | NUnique | mean | median | min  | max  | sd   | Histogram  |
-## +=============+=========+======+========+======+======+======+============+
-## | 27          | 33      | 0.05 | 0.05   | 0.04 | 0.08 | 0.01 | ▁▂▄▇▆▃▂▁   |
-## +-------------+---------+------+--------+------+------+------+------------+
-## | 28.5        | 41      | 0.05 | 0.05   | 0.03 | 0.06 | 0.01 | ▁▂▇▇▆▆▆▄▁▁ |
-## +-------------+---------+------+--------+------+------+------+------------+
-## | 30          | 24      | 0.04 | 0.04   | 0.04 | 0.06 | 0.01 | ▂▃▄▇▃▃▃▂▁▁ |
-## +-------------+---------+------+--------+------+------+------+------------+
+
+
+``` r
+sample_size_egg_size <- egg_df_all |> drop_na(EGG_SIZE) |> 
+  group_by(TEMPERATURE, MALE, FEMALE, POPULATION, CLUTCH_NUMBER) |> 
+  summarise(n =n(), .groups = "drop"); sample_size_egg_size
 ```
+
+<div data-pagedtable="false">
+  <script data-pagedtable-source type="application/json">
+{"columns":[{"label":["TEMPERATURE"],"name":[1],"type":["fct"],"align":["left"]},{"label":["MALE"],"name":[2],"type":["fct"],"align":["left"]},{"label":["FEMALE"],"name":[3],"type":["fct"],"align":["left"]},{"label":["POPULATION"],"name":[4],"type":["fct"],"align":["left"]},{"label":["CLUTCH_NUMBER"],"name":[5],"type":["fct"],"align":["left"]},{"label":["n"],"name":[6],"type":["int"],"align":["right"]}],"data":[{"1":"27","2":"CARL230","3":"CARL235","4":"Arlington Reef","5":"81","6":"10"},{"1":"27","2":"CARL230","3":"CARL235","4":"Arlington Reef","5":"122","6":"10"},{"1":"27","2":"CARL237","3":"CARL219","4":"Arlington Reef","5":"40","6":"10"},{"1":"27","2":"CARL237","3":"CARL219","4":"Arlington Reef","5":"80","6":"10"},{"1":"27","2":"CARL241","3":"CARL239","4":"Arlington Reef","5":"57","6":"10"},{"1":"27","2":"CARL241","3":"CARL239","4":"Arlington Reef","5":"91","6":"10"},{"1":"27","2":"CARL354","3":"CARL355","4":"Arlington Reef","5":"59","6":"10"},{"1":"27","2":"CARL354","3":"CARL355","4":"Arlington Reef","5":"85","6":"10"},{"1":"27","2":"CARL354","3":"CARL355","4":"Arlington Reef","5":"112","6":"10"},{"1":"27","2":"CPRE372","3":"CPRE209","4":"Pretty Patches","5":"38","6":"10"},{"1":"27","2":"CPRE372","3":"CPRE209","4":"Pretty Patches","5":"76","6":"10"},{"1":"27","2":"CPRE375","3":"CPRE377","4":"Pretty Patches","5":"66","6":"10"},{"1":"27","2":"CPRE375","3":"CPRE377","4":"Pretty Patches","5":"105","6":"10"},{"1":"27","2":"CSUD009","3":"CSUD212","4":"Sudbury Reef","5":"63","6":"10"},{"1":"27","2":"CSUD009","3":"CSUD212","4":"Sudbury Reef","5":"93","6":"10"},{"1":"27","2":"CSUD013","3":"CSUD017","4":"Sudbury Reef","5":"48","6":"10"},{"1":"27","2":"CSUD013","3":"CSUD017","4":"Sudbury Reef","5":"67","6":"10"},{"1":"27","2":"CVLA102","3":"CVLA466","4":"Vlassof Cay","5":"116","6":"10"},{"1":"27","2":"CVLA468","3":"CVLA477","4":"Vlassof Cay","5":"111","6":"10"},{"1":"27","2":"CVLA468","3":"CVLA477","4":"Vlassof Cay","5":"132","6":"10"},{"1":"27","2":"CVLA486","3":"CVLA463","4":"Vlassof Cay","5":"129","6":"10"},{"1":"28.5","2":"CARL217","3":"CARL226","4":"Arlington Reef","5":"56","6":"10"},{"1":"28.5","2":"CARL335","3":"CARL359","4":"Arlington Reef","5":"99","6":"10"},{"1":"28.5","2":"CARL335","3":"CARL359","4":"Arlington Reef","5":"133","6":"10"},{"1":"28.5","2":"CARL338","3":"CARL345","4":"Arlington Reef","5":"96","6":"10"},{"1":"28.5","2":"CARL367","3":"CARL363","4":"Arlington Reef","5":"109","6":"10"},{"1":"28.5","2":"CARL369","3":"CARL349","4":"Arlington Reef","5":"108","6":"10"},{"1":"28.5","2":"CPRE453","3":"CPRE459","4":"Pretty Patches","5":"110","6":"10"},{"1":"28.5","2":"CPRE521","3":"CPRE524","4":"Pretty Patches","5":"107","6":"10"},{"1":"28.5","2":"CPRE550","3":"CPRE533","4":"Pretty Patches","5":"120","6":"10"},{"1":"28.5","2":"CSUD002","3":"CSUD213","4":"Sudbury Reef","5":"92","6":"10"},{"1":"28.5","2":"CSUD016","3":"CSUD078","4":"Sudbury Reef","5":"61","6":"10"},{"1":"28.5","2":"CVLA049","3":"CVLA098","4":"Vlassof Cay","5":"49","6":"10"},{"1":"28.5","2":"CVLA049","3":"CVLA098","4":"Vlassof Cay","5":"62","6":"10"},{"1":"30","2":"CARL218","3":"CARL222","4":"Arlington Reef","5":"51","6":"10"},{"1":"30","2":"CARL218","3":"CARL222","4":"Arlington Reef","5":"68","6":"10"},{"1":"30","2":"CARL233","3":"CARL215","4":"Arlington Reef","5":"84","6":"10"},{"1":"30","2":"CARL344","3":"CARL370","4":"Arlington Reef","5":"47","6":"10"},{"1":"30","2":"CARL344","3":"CARL370","4":"Arlington Reef","5":"79","6":"10"},{"1":"30","2":"CARL360","3":"CARL249","4":"Arlington Reef","5":"100","6":"10"},{"1":"30","2":"CARL360","3":"CARL249","4":"Arlington Reef","5":"126","6":"10"},{"1":"30","2":"CPRE189","3":"CPRE202","4":"Pretty Patches","5":"55","6":"10"},{"1":"30","2":"CPRE189","3":"CPRE202","4":"Pretty Patches","5":"78","6":"10"},{"1":"30","2":"CPRE391","3":"CPRE390","4":"Pretty Patches","5":"86","6":"10"},{"1":"30","2":"CPRE391","3":"CPRE390","4":"Pretty Patches","5":"115","6":"10"},{"1":"30","2":"CPRE447","3":"CPRE452","4":"Pretty Patches","5":"104","6":"10"},{"1":"30","2":"CPRE447","3":"CPRE452","4":"Pretty Patches","5":"131","6":"10"},{"1":"30","2":"CSUD310","3":"CSUD306","4":"Sudbury Reef","5":"114","6":"10"},{"1":"30","2":"CSUD312","3":"CSUD304","4":"Sudbury Reef","5":"88","6":"10"},{"1":"30","2":"CSUD312","3":"CSUD304","4":"Sudbury Reef","5":"124","6":"10"},{"1":"30","2":"CVLA089","3":"CVLA059","4":"Vlassof Cay","5":"58","6":"10"},{"1":"30","2":"CVLA106","3":"CVLA091","4":"Vlassof Cay","5":"54","6":"10"},{"1":"30","2":"CVLA498","3":"CVLA493","4":"Vlassof Cay","5":"117","6":"10"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+
+``` r
+write.csv(sample_size_egg_size, "../../sample_size_egg_size.csv")
+```
+
 
 # Fit models [random factors] 
 
@@ -278,11 +457,11 @@ print(AIC(modelNULL, model1, model2, model3, model4, k=3))
 
 ```
 ##           df       AIC
-## modelNULL  2 -6308.350
-## model1     3 -6305.916
-## model2     3 -6488.199
-## model3     3 -7075.279
-## model4     4 -7075.215
+## modelNULL  2 -3676.462
+## model1     3 -3673.462
+## model2     3 -3722.229
+## model3     3 -4186.643
+## model4     4 -4184.430
 ```
 
 ``` r
@@ -291,11 +470,11 @@ print(BIC(modelNULL, model1, model2, model3, model4))
 
 ```
 ##           df       BIC
-## modelNULL  2 -6300.745
-## model1     3 -6294.509
-## model2     3 -6476.792
-## model3     3 -7063.871
-## model4     4 -7060.006
+## modelNULL  2 -3669.916
+## model1     3 -3663.643
+## model2     3 -3712.411
+## model3     3 -4176.825
+## model4     4 -4171.338
 ```
 
 # Fit fixed factors
@@ -327,8 +506,8 @@ print(AICc(model1a, model1b, k=5))
 
 ```
 ##         df      AICc
-## model1a  9 -4780.502
-## model1b 10 -4805.280
+## model1a  9 -3858.570
+## model1b 10 -3863.606
 ```
 
 # Model validation {.tabset}
@@ -341,19 +520,19 @@ model1b |>
   simulateResiduals(plot=TRUE)  
 ```
 
-![](02A1_Egg_size_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+![](02A1_Egg_size_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
 
 ```
 ## Object of Class DHARMa with simulated residuals based on 250 simulations with refit = FALSE . See ?DHARMa::simulateResiduals for help. 
 ##  
-## Scaled residual values: 0.736 0.716 0.516 0.472 0.616 0.796 0.768 0.488 0.956 0.508 0.384 0.028 0.272 0.052 0.108 0.192 0.004 0.056 0.132 0.008 ...
+## Scaled residual values: 0.376 0.032 0.32 0.04 0.116 0.188 0.044 0.088 0.132 0.012 0.7 0.708 0.56 0.516 0.656 0.772 0.78 0.58 0.956 0.528 ...
 ```
 
 ``` r
 model1b |> testResiduals(plot=T) 
 ```
 
-![](02A1_Egg_size_files/figure-html/unnamed-chunk-10-2.png)<!-- -->
+![](02A1_Egg_size_files/figure-html/unnamed-chunk-11-2.png)<!-- -->
 
 ```
 ## $uniformity
@@ -361,7 +540,7 @@ model1b |> testResiduals(plot=T)
 ## 	Asymptotic one-sample Kolmogorov-Smirnov test
 ## 
 ## data:  simulationOutput$scaledResiduals
-## D = 0.027213, p-value = 0.757
+## D = 0.020898, p-value = 0.983
 ## alternative hypothesis: two-sided
 ## 
 ## 
@@ -371,7 +550,7 @@ model1b |> testResiduals(plot=T)
 ## 	simulated
 ## 
 ## data:  simulationOutput
-## dispersion = 1.087, p-value = 0.392
+## dispersion = 1.0385, p-value = 0.752
 ## alternative hypothesis: two.sided
 ## 
 ## 
@@ -381,53 +560,18 @@ model1b |> testResiduals(plot=T)
 ## 	expectations
 ## 
 ## data:  simulationOutput
-## outliers at both margin(s) = 5, observations = 610, p-value = 0.8194
+## outliers at both margin(s) = 3, observations = 490, p-value = 1
 ## alternative hypothesis: true probability of success is not equal to 0.007968127
 ## 95 percent confidence interval:
-##  0.002666655 0.019024048
+##  0.00126438 0.01778737
 ## sample estimates:
 ## frequency of outliers (expected: 0.00796812749003984 ) 
-##                                            0.008196721
-```
-
-```
-## $uniformity
-## 
-## 	Asymptotic one-sample Kolmogorov-Smirnov test
-## 
-## data:  simulationOutput$scaledResiduals
-## D = 0.027213, p-value = 0.757
-## alternative hypothesis: two-sided
-## 
-## 
-## $dispersion
-## 
-## 	DHARMa nonparametric dispersion test via sd of residuals fitted vs.
-## 	simulated
-## 
-## data:  simulationOutput
-## dispersion = 1.087, p-value = 0.392
-## alternative hypothesis: two.sided
-## 
-## 
-## $outliers
-## 
-## 	DHARMa outlier test based on exact binomial test with approximate
-## 	expectations
-## 
-## data:  simulationOutput
-## outliers at both margin(s) = 5, observations = 610, p-value = 0.8194
-## alternative hypothesis: true probability of success is not equal to 0.007968127
-## 95 percent confidence interval:
-##  0.002666655 0.019024048
-## sample estimates:
-## frequency of outliers (expected: 0.00796812749003984 ) 
-##                                            0.008196721
+##                                            0.006122449
 ```
 
 ## performance 
 
-![](02A1_Egg_size_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+![](02A1_Egg_size_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
 ## {-} 
 
@@ -436,66 +580,46 @@ model1b |> testResiduals(plot=T)
 
 ``` r
 model1b |> ggemmeans(~MASS_FEMALE) |> 
-  plot(add.data =TRUE) 
+  plot() 
 ```
 
 ```
 ## NOTE: Results may be misleading due to involvement in interactions
 ```
 
-```
-## Data points may overlap. Use the `jitter` argument to add some amount of
-##   random variation to the location of data points and avoid overplotting.
-```
-
-![](02A1_Egg_size_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+![](02A1_Egg_size_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
 
 ``` r
 model1b |> ggemmeans(~TEMPERATURE) |> 
-  plot(add.data =FALSE)
+  plot()
 ```
 
 ```
 ## NOTE: Results may be misleading due to involvement in interactions
 ```
 
-![](02A1_Egg_size_files/figure-html/unnamed-chunk-12-2.png)<!-- -->
+![](02A1_Egg_size_files/figure-html/unnamed-chunk-13-2.png)<!-- -->
 
 ``` r
 model1b |> ggemmeans(~DAYS_IN_TREATMENT) |> 
-  plot(add.data =TRUE) 
+  plot() 
 ```
 
-```
-## Data points may overlap. Use the `jitter` argument to add some amount of
-##   random variation to the location of data points and avoid overplotting.
-```
-
-![](02A1_Egg_size_files/figure-html/unnamed-chunk-12-3.png)<!-- -->
+![](02A1_Egg_size_files/figure-html/unnamed-chunk-13-3.png)<!-- -->
 
 ``` r
 model1b |> ggemmeans(~EGG_COUNT) |> 
-  plot(add.data =TRUE) 
+  plot() 
 ```
 
-```
-## Data points may overlap. Use the `jitter` argument to add some amount of
-##   random variation to the location of data points and avoid overplotting.
-```
-
-![](02A1_Egg_size_files/figure-html/unnamed-chunk-12-4.png)<!-- -->
+![](02A1_Egg_size_files/figure-html/unnamed-chunk-13-4.png)<!-- -->
 
 ``` r
 model1b |> ggemmeans(~MASS_FEMALE|TEMPERATURE) |> 
-  plot(add.data =TRUE)
+  plot()
 ```
 
-```
-## Data points may overlap. Use the `jitter` argument to add some amount of
-##   random variation to the location of data points and avoid overplotting.
-```
-
-![](02A1_Egg_size_files/figure-html/unnamed-chunk-12-5.png)<!-- -->
+![](02A1_Egg_size_files/figure-html/unnamed-chunk-13-5.png)<!-- -->
 
 # Model investigation {.tabset} 
 
@@ -513,38 +637,38 @@ model1b |> summary()
 ##     center = TRUE) + (1 | FEMALE)
 ## Data: egg_df_all
 ## 
-##      AIC      BIC   logLik deviance df.resid 
-##  -4836.2  -4792.1   2428.1  -4856.2      600 
+##       AIC       BIC    logLik -2*log(L)  df.resid 
+##   -3894.8   -3852.8    1957.4   -3914.8       480 
 ## 
 ## Random effects:
 ## 
 ## Conditional model:
 ##  Groups   Name        Variance  Std.Dev.
-##  FEMALE   (Intercept) 1.027e-05 0.003204
-##  Residual             1.801e-05 0.004243
-## Number of obs: 610, groups:  FEMALE, 32
+##  FEMALE   (Intercept) 1.235e-05 0.003514
+##  Residual             1.692e-05 0.004114
+## Number of obs: 490, groups:  FEMALE, 32
 ## 
-## Dispersion estimate for gaussian family (sigma^2): 1.8e-05 
+## Dispersion estimate for gaussian family (sigma^2): 1.69e-05 
 ## 
 ## Conditional model:
 ##                                                       Estimate Std. Error
-## (Intercept)                                          0.0495883  0.0011626
-## scale(MASS_FEMALE, center = TRUE)                    0.0055372  0.0011123
-## TEMPERATURE28.5                                     -0.0012691  0.0015875
-## TEMPERATURE30                                       -0.0063861  0.0015485
-## scale(as.numeric(DAYS_IN_TREATMENT), center = TRUE) -0.0016304  0.0002943
-## scale(EGG_COUNT, center = TRUE)                     -0.0013096  0.0004692
-## scale(MASS_FEMALE, center = TRUE):TEMPERATURE28.5   -0.0019675  0.0014473
-## scale(MASS_FEMALE, center = TRUE):TEMPERATURE30     -0.0004803  0.0017603
+## (Intercept)                                          0.0499685  0.0012611
+## scale(MASS_FEMALE, center = TRUE)                    0.0052621  0.0011487
+## TEMPERATURE28.5                                     -0.0006912  0.0017350
+## TEMPERATURE30                                       -0.0063130  0.0016806
+## scale(as.numeric(DAYS_IN_TREATMENT), center = TRUE) -0.0010762  0.0003330
+## scale(EGG_COUNT, center = TRUE)                     -0.0014515  0.0004728
+## scale(MASS_FEMALE, center = TRUE):TEMPERATURE28.5   -0.0016172  0.0015099
+## scale(MASS_FEMALE, center = TRUE):TEMPERATURE30     -0.0005207  0.0018171
 ##                                                     z value Pr(>|z|)    
-## (Intercept)                                           42.65  < 2e-16 ***
-## scale(MASS_FEMALE, center = TRUE)                      4.98 6.43e-07 ***
-## TEMPERATURE28.5                                       -0.80  0.42404    
-## TEMPERATURE30                                         -4.12 3.72e-05 ***
-## scale(as.numeric(DAYS_IN_TREATMENT), center = TRUE)   -5.54 3.02e-08 ***
-## scale(EGG_COUNT, center = TRUE)                       -2.79  0.00526 ** 
-## scale(MASS_FEMALE, center = TRUE):TEMPERATURE28.5     -1.36  0.17401    
-## scale(MASS_FEMALE, center = TRUE):TEMPERATURE30       -0.27  0.78496    
+## (Intercept)                                           39.62  < 2e-16 ***
+## scale(MASS_FEMALE, center = TRUE)                      4.58 4.63e-06 ***
+## TEMPERATURE28.5                                       -0.40 0.690371    
+## TEMPERATURE30                                         -3.76 0.000172 ***
+## scale(as.numeric(DAYS_IN_TREATMENT), center = TRUE)   -3.23 0.001230 ** 
+## scale(EGG_COUNT, center = TRUE)                       -3.07 0.002142 ** 
+## scale(MASS_FEMALE, center = TRUE):TEMPERATURE28.5     -1.07 0.284143    
+## scale(MASS_FEMALE, center = TRUE):TEMPERATURE30       -0.29 0.774433    
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
@@ -561,11 +685,11 @@ model1b |> car::Anova() |> print()
 ## 
 ## Response: EGG_SIZE
 ##                                                       Chisq Df Pr(>Chisq)    
-## scale(MASS_FEMALE, center = TRUE)                   45.6514  1  1.413e-11 ***
-## TEMPERATURE                                         24.1775  2  5.622e-06 ***
-## scale(as.numeric(DAYS_IN_TREATMENT), center = TRUE) 30.6932  1  3.022e-08 ***
-## scale(EGG_COUNT, center = TRUE)                      7.7893  1   0.005256 ** 
-## scale(MASS_FEMALE, center = TRUE):TEMPERATURE        1.9984  2   0.368178    
+## scale(MASS_FEMALE, center = TRUE)                   40.4232  1  2.045e-10 ***
+## TEMPERATURE                                         21.1281  2  2.583e-05 ***
+## scale(as.numeric(DAYS_IN_TREATMENT), center = TRUE) 10.4443  1   0.001230 ** 
+## scale(EGG_COUNT, center = TRUE)                      9.4239  1   0.002142 ** 
+## scale(MASS_FEMALE, center = TRUE):TEMPERATURE        1.1972  2   0.549593    
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
@@ -579,25 +703,25 @@ model1b |> confint()
 
 ```
 ##                                                            2.5 %        97.5 %
-## (Intercept)                                          0.047309606  0.0518669326
-## scale(MASS_FEMALE, center = TRUE)                    0.003357021  0.0077173351
-## TEMPERATURE28.5                                     -0.004380613  0.0018423877
-## TEMPERATURE30                                       -0.009421131 -0.0033510450
-## scale(as.numeric(DAYS_IN_TREATMENT), center = TRUE) -0.002207237 -0.0010536259
-## scale(EGG_COUNT, center = TRUE)                     -0.002229220 -0.0003899041
-## scale(MASS_FEMALE, center = TRUE):TEMPERATURE28.5   -0.004804134  0.0008691617
-## scale(MASS_FEMALE, center = TRUE):TEMPERATURE30     -0.003930529  0.0029698566
-## Std.Dev.(Intercept)|FEMALE                           0.002452619  0.0041867809
+## (Intercept)                                          0.047496867  0.0524401367
+## scale(MASS_FEMALE, center = TRUE)                    0.003010598  0.0075135205
+## TEMPERATURE28.5                                     -0.004091776  0.0027094619
+## TEMPERATURE30                                       -0.009606908 -0.0030191497
+## scale(as.numeric(DAYS_IN_TREATMENT), center = TRUE) -0.001728885 -0.0004235182
+## scale(EGG_COUNT, center = TRUE)                     -0.002378248 -0.0005247847
+## scale(MASS_FEMALE, center = TRUE):TEMPERATURE28.5   -0.004576629  0.0013421826
+## scale(MASS_FEMALE, center = TRUE):TEMPERATURE30     -0.004082156  0.0030406734
+## Std.Dev.(Intercept)|FEMALE                           0.002683439  0.0046013736
 ##                                                          Estimate
-## (Intercept)                                          0.0495882693
-## scale(MASS_FEMALE, center = TRUE)                    0.0055371779
-## TEMPERATURE28.5                                     -0.0012691126
-## TEMPERATURE30                                       -0.0063860878
-## scale(as.numeric(DAYS_IN_TREATMENT), center = TRUE) -0.0016304315
-## scale(EGG_COUNT, center = TRUE)                     -0.0013095621
-## scale(MASS_FEMALE, center = TRUE):TEMPERATURE28.5   -0.0019674861
-## scale(MASS_FEMALE, center = TRUE):TEMPERATURE30     -0.0004803363
-## Std.Dev.(Intercept)|FEMALE                           0.0032044623
+## (Intercept)                                          0.0499685017
+## scale(MASS_FEMALE, center = TRUE)                    0.0052620594
+## TEMPERATURE28.5                                     -0.0006911571
+## TEMPERATURE30                                       -0.0063130290
+## scale(as.numeric(DAYS_IN_TREATMENT), center = TRUE) -0.0010762018
+## scale(EGG_COUNT, center = TRUE)                     -0.0014515163
+## scale(MASS_FEMALE, center = TRUE):TEMPERATURE28.5   -0.0016172233
+## scale(MASS_FEMALE, center = TRUE):TEMPERATURE30     -0.0005207412
+## Std.Dev.(Intercept)|FEMALE                           0.0035139020
 ```
 
 ## r-squared
@@ -610,8 +734,8 @@ model1b |> r2_nakagawa()
 ```
 ## # R2 for Mixed Models
 ## 
-##   Conditional R2: 0.689
-##      Marginal R2: 0.511
+##   Conditional R2: 0.718
+##      Marginal R2: 0.512
 ```
 # Post-hoc analysis 
 
@@ -625,10 +749,10 @@ model1b |> emmeans(~TEMPERATURE, type ="response")
 ```
 
 ```
-##  TEMPERATURE emmean      SE  df lower.CL upper.CL
-##  27          0.0497 0.00117 600   0.0474   0.0520
-##  28.5        0.0484 0.00108 600   0.0463   0.0505
-##  30          0.0433 0.00102 600   0.0413   0.0453
+##  TEMPERATURE emmean      SE  df asymp.LCL asymp.UCL
+##  27          0.0503 0.00128 Inf    0.0478    0.0528
+##  28.5        0.0496 0.00120 Inf    0.0473    0.0520
+##  30          0.0440 0.00112 Inf    0.0418    0.0462
 ## 
 ## Confidence level used: 0.95
 ```
@@ -642,10 +766,10 @@ model1b |> emmeans(~TEMPERATURE, type ="response") |> pairs() |> summary() |> pr
 ```
 
 ```
-##  contrast                        estimate      SE  df t.ratio p.value
-##  TEMPERATURE27 - TEMPERATURE28.5  0.00124 0.00159 600   0.783  0.7136
-##  TEMPERATURE27 - TEMPERATURE30    0.00638 0.00155 600   4.107  0.0001
-##  TEMPERATURE28.5 - TEMPERATURE30  0.00514 0.00149 600   3.451  0.0017
+##  contrast                        estimate      SE  df z.ratio p.value
+##  TEMPERATURE27 - TEMPERATURE28.5 0.000657 0.00174 Inf   0.379  0.9241
+##  TEMPERATURE27 - TEMPERATURE30   0.006302 0.00169 Inf   3.733  0.0006
+##  TEMPERATURE28.5 - TEMPERATURE30 0.005645 0.00163 Inf   3.464  0.0015
 ## 
 ## P value adjustment: tukey method for comparing a family of 3 estimates
 ```
@@ -659,7 +783,7 @@ egg.emmeans.df <- model1b |> emmeans(~TEMPERATURE, type ="response") |> as.data.
 ```
 
 ``` r
-save(egg.emmeans.df, file="Figure_files/egg.emmeans.RData")
+save(egg.emmeans.df, file="../../Figure_files/egg.emmeans.RData")
 ```
 
 ## {-}
@@ -747,11 +871,11 @@ egg.plot.final <-egg.plot + egg.plot2 +
               widths = c(2,1)); egg.plot.final
 ```
 
-![](02A1_Egg_size_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+![](02A1_Egg_size_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
 
 ``` r
-#save(egg.obs.summarize, file="Figure_files/egg.obs.summarize.RData")
-#save(egg.obs.summarize2, file="Figure_files/egg.obs.summarize2.RData")
+save(egg.obs.summarize, file="../../Figure_files/egg.obs.summarize-fixed.RData")
+save(egg.obs.summarize2, file="../../Figure_files/egg.obs.summarize2-fixed.RData")
 ```
 
 
@@ -786,7 +910,7 @@ df.results.eggsize <- egg.obs.summarize |>
 
 <div data-pagedtable="false">
   <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["TEMPERATURE"],"name":[1],"type":["chr"],"align":["left"]},{"label":["group"],"name":[2],"type":["chr"],"align":["left"]},{"label":["Slope"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Heritability"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["r.sqaured"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"27","2":"egg_size","3":"0.0003960855","4":"0.0007921711","5":"0.6204897"},{"1":"28.5","2":"egg_size","3":"0.0002596032","4":"0.0005192064","5":"0.4016269"},{"1":"30","2":"egg_size","3":"0.0004321906","4":"0.0008643812","5":"0.5034519"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["TEMPERATURE"],"name":[1],"type":["chr"],"align":["left"]},{"label":["group"],"name":[2],"type":["chr"],"align":["left"]},{"label":["Slope"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["Heritability"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["r.sqaured"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"27","2":"egg_size","3":"0.0004012830","4":"0.0008025660","5":"0.5608827"},{"1":"28.5","2":"egg_size","3":"0.0002761520","4":"0.0005523040","5":"0.3855880"},{"1":"30","2":"egg_size","3":"0.0004274167","4":"0.0008548335","5":"0.4775881"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 
@@ -810,8 +934,8 @@ summary(within_var)
 
 ```
 ##             Df Sum Sq Mean Sq F value Pr(>F)
-## TEMPERATURE  2    1.8   0.917   0.074  0.929
-## Residuals   29  361.1  12.451
+## TEMPERATURE  2   11.1   5.528   0.454  0.639
+## Residuals   29  353.0  12.174
 ```
 
 ``` r
@@ -820,9 +944,9 @@ emmeans(within_var, ~TEMPERATURE)
 
 ```
 ##  TEMPERATURE emmean   SE df lower.CL upper.CL
-##  27            8.64 1.12 29     6.36     10.9
-##  28.5          9.09 1.06 29     6.91     11.3
-##  30            9.20 1.06 29     7.03     11.4
+##  27            8.40 1.10 29     6.14    10.65
+##  28.5          7.79 1.05 29     5.63     9.94
+##  30            9.20 1.05 29     7.05    11.35
 ## 
 ## Confidence level used: 0.95
 ```
@@ -845,7 +969,7 @@ cv_within_summ <- cv_within |>
 
 <div data-pagedtable="false">
   <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["TEMPERATURE"],"name":[1],"type":["fct"],"align":["left"]},{"label":["mean_CV"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["mean_mean"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["mean_sd"],"name":[4],"type":["dbl"],"align":["right"]}],"data":[{"1":"27","2":"8.640696","3":"0.05185333","4":"0.004442251"},{"1":"28.5","2":"9.090702","3":"0.04737636","4":"0.004255032"},{"1":"30","2":"9.203577","3":"0.04400606","4":"0.003906316"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["TEMPERATURE"],"name":[1],"type":["fct"],"align":["left"]},{"label":["mean_CV"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["mean_mean"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["mean_sd"],"name":[4],"type":["dbl"],"align":["right"]}],"data":[{"1":"27","2":"8.395670","3":"0.05209333","4":"0.004330323"},{"1":"28.5","2":"7.785023","3":"0.04812727","4":"0.003707758"},{"1":"30","2":"9.198734","3":"0.04415909","4":"0.003917388"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 
@@ -874,11 +998,11 @@ cv_among; cv_among2
 
 <div data-pagedtable="false">
   <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["TEMPERATURE"],"name":[1],"type":["fct"],"align":["left"]},{"label":["cv_among"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["sd_among"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["mean_among"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["nsamples"],"name":[5],"type":["int"],"align":["right"]}],"data":[{"1":"27","2":"26.55235","3":"2.294308","4":"8.640696","5":"10"},{"1":"28.5","2":"33.36161","3":"3.032805","4":"9.090702","5":"11"},{"1":"30","2":"51.16117","3":"4.708657","4":"9.203577","5":"11"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["TEMPERATURE"],"name":[1],"type":["fct"],"align":["left"]},{"label":["cv_among"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["sd_among"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["mean_among"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["nsamples"],"name":[5],"type":["int"],"align":["right"]}],"data":[{"1":"27","2":"29.09397","3":"2.442634","4":"8.395670","5":"10"},{"1":"28.5","2":"35.09604","3":"2.732235","4":"7.785023","5":"11"},{"1":"30","2":"51.52990","3":"4.740099","4":"9.198734","5":"11"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div><div data-pagedtable="false">
   <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["x"],"name":[1],"type":["chr"],"align":["left"]},{"label":["cv_among"],"name":[2],"type":["dbl"],"align":["right"]}],"data":[{"1":"27v30","2":"-0.6558625"},{"1":"28v30","2":"-0.4275748"},{"1":"27v28","2":"-0.2282877"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["x"],"name":[1],"type":["chr"],"align":["left"]},{"label":["cv_among"],"name":[2],"type":["dbl"],"align":["right"]}],"data":[{"1":"27v30","2":"-0.5716312"},{"1":"28v30","2":"-0.3840739"},{"1":"27v28","2":"-0.1875573"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 
